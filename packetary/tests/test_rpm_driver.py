@@ -45,6 +45,7 @@ class TestRpmDriver(base.TestCase):
 
         super(TestRpmDriver, cls).setUpClass()
         cls.driver = rpm_driver.RpmRepositoryDriver()
+        cls.driver.logger = mock.MagicMock()
 
     def setUp(self):
         self.createrepo.reset_mock()

@@ -26,7 +26,7 @@ description:
 
 maintainers:
 
-- contrib/:
+- ./:
     - name:   Bulat Gaifullin
       email:  bgaifullin@mirantis.com
       IRC:    bgaifullin
@@ -34,21 +34,3 @@ maintainers:
     - name:   Vladimir Kozhukalov
       email:  vkozhukalov@mirantis.com
       IRC:    kozhukalov
-
-- packetary/:
-    - name:   Bulat Gaifullin
-      email:  bgaifullin@mirantis.com
-      IRC:    bgaifullin
-
-    - name:   Vladimir Kozhukalov
-      email:  vkozhukalov@mirantis.com
-      IRC:    kozhukalov
-
-- perestroika/: &build_team
-    - name:   Dmitry Burmistrov
-      email:  dburmistrov@mirantis.com
-      IRC:    dburmistrov
-
-    - name:   Sergey Kulanov
-      email:  skulanov@mirantis.com
-      IRC:    SergK

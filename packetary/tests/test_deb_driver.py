@@ -36,6 +36,7 @@ class TestDebDriver(base.TestCase):
     def setUpClass(cls):
         super(TestDebDriver, cls).setUpClass()
         cls.driver = deb_driver.DebRepositoryDriver()
+        cls.driver.logger = mock.MagicMock()
 
     def setUp(self):
         self.connection = mock.MagicMock()
