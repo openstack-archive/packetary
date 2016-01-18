@@ -1,0 +1,10 @@
+Code-Review+1: Vladimir Kozhukalov <vkozhukalov@mirantis.com>
+Code-Review+1: Ivan Kliuk <ivan.kliuk+spam@gmail.com>
+Code-Review+2: Evgeniy L <eli@mirantis.com>
+Workflow+1: Evgeniy L <eli@mirantis.com>
+Verified+2: Jenkins
+Submitted-by: Jenkins
+Submitted-at: Fri, 06 Nov 2015 11:31:42 +0000
+Reviewed-on: https://review.openstack.org/241318
+Project: openstack/packetary
+Branch: refs/heads/master

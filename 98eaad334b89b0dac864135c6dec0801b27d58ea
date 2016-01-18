@@ -1,0 +1,10 @@
+Code-Review+1: Igor Yozhikov <iyozhikov@mirantis.com>
+Code-Review+1: Roman Vyalov <rvyalov@mirantis.com>
+Code-Review+2: Sergey Kulanov <skulanov@mirantis.com>
+Workflow+1: Sergey Kulanov <skulanov@mirantis.com>
+Verified+2: Jenkins
+Submitted-by: Jenkins
+Submitted-at: Wed, 11 Nov 2015 16:53:06 +0000
+Reviewed-on: https://review.openstack.org/242406
+Project: openstack/packetary
+Branch: refs/heads/master
