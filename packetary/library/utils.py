@@ -79,7 +79,7 @@ def get_path_from_url(url, ensure_file=True):
     :param url: the URL
     :param ensure_file: If True, ensure that scheme is "file"
     :return: the path component from URL
-    :raises ValueError
+    :raise ValueError: if expected local path and schema of URL is not file
     """
 
     comps = urlparse(url, scheme="file")
@@ -92,14 +92,27 @@ def get_path_from_url(url, ensure_file=True):
     return comps.path
 
 
-def localize_repo_url(localurl, repo_url):
-    """Gets local repository url.
+def get_url_from_path(path):
+    """Get the URL from local path.
 
-    :param localurl: the base local URL
-    :param repo_url: the origin URL of repository
-    :return: localurl + get_path_from_url(repo_url)
+    :param path: the local path
+    :return: the URL
     """
-    return localurl.rstrip("/") + urlparse(repo_url).path
+    path = os.path.abspath(path)
+    if os.sep != "/":
+        path = path.replace(os.sep, "/")
+    return "file://" + path
+
+
+def normalize_repository_url(url):
+    """Convert URL of repository to normal form.
+
+    :param url: the origin URL
+    :return: normalized URL
+    """
+    if url and url[0] in ("/", "."):
+        url = get_url_from_path(url)
+    return url.rstrip("/") + "/"
 
 
 def ensure_dir_exist(path):

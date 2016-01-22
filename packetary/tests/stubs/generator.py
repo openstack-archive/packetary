@@ -20,9 +20,9 @@ from packetary import objects
 
 
 def gen_repository(name="test", url="file:///test",
-                   architecture="x86_64", origin="Test"):
+                   architecture="x86_64", origin="Test", **kwargs):
     """Helper to create Repository object with default attributes."""
-    return objects.Repository(name, url, architecture, origin)
+    return objects.Repository(name, url, architecture, origin, **kwargs)
 
 
 def gen_relation(name="test", version=None, alternative=None):
@@ -46,7 +46,7 @@ def gen_package(idx=1, **kwargs):
     for relation in ("requires", "provides", "obsoletes"):
         if relation not in kwargs:
             kwargs[relation] = [gen_relation(
-                "{0}{1}".format(relation, idx), ["le", idx + 1]
+                "{0}{1}".format(relation, idx), ["<=", idx + 1]
             )]
 
     return objects.Package(**kwargs)

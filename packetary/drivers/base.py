@@ -35,18 +35,11 @@ class RepositoryDriverBase(object):
         self.logger = logging.getLogger(__package__)
 
     @abc.abstractmethod
-    def parse_urls(self, urls):
-        """Parses the repository url.
-
-        :return: the sequence of parsed urls
-        """
-
-    @abc.abstractmethod
-    def get_repository(self, connection, url, arch, consumer):
+    def get_repository(self, connection, repository_data, arch, consumer):
         """Loads the repository meta information from URL.
 
         :param connection: the connection manager instance
-        :param url: the repository`s url
+        :param repository_data: the repository`s url
         :param arch: the repository`s architecture
         :param consumer: the callback to consume result
         """
@@ -74,9 +67,19 @@ class RepositoryDriverBase(object):
         """
 
     @abc.abstractmethod
-    def rebuild_repository(self, repository, packages):
-        """Re-builds the repository.
+    def add_packages(self, connection, repository, packages):
+        """Adds new packages to the repository.
 
+        :param connection: the connection manager instance
         :param repository: the target repository
         :param packages: the set of packages
+        """
+
+    @abc.abstractmethod
+    def priority_sort(self, repo_data):
+        """Key method to sort repositories data by priority.
+
+        :param repo_data: the repository`s description
+        :return: the integer value that is relevant repository`s priority
+                 less number means greater priority
         """

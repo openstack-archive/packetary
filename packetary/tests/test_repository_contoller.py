@@ -18,9 +18,9 @@
 
 import copy
 import mock
-import six
 
 from packetary.controllers import RepositoryController
+from packetary.drivers.base import RepositoryDriverBase
 from packetary.tests import base
 from packetary.tests.stubs.executor import Executor
 from packetary.tests.stubs.generator import gen_package
@@ -30,7 +30,7 @@ from packetary.tests.stubs.helpers import CallbacksAdapter
 
 class TestRepositoryController(base.TestCase):
     def setUp(self):
-        self.driver = mock.MagicMock()
+        self.driver = mock.MagicMock(spec=RepositoryDriverBase)
         self.context = mock.MagicMock()
         self.context.async_section.return_value = Executor()
         self.ctrl = RepositoryController(self.context, self.driver, "x86_64")
@@ -53,24 +53,21 @@ class TestRepositoryController(base.TestCase):
         self.assertIs(self.driver, controller.driver)
 
     def test_load_repositories(self):
-        self.driver.parse_urls.return_value = ["test1"]
-        consumer = mock.MagicMock()
-        self.ctrl.load_repositories("file:///test1", consumer)
-        self.driver.parse_urls.assert_called_once_with(["file:///test1"])
+        repo_data = {"name": "test", "url": "file:///test1"}
+        repo = gen_repository(**repo_data)
+        self.driver.get_repository = CallbacksAdapter()
+        self.driver.get_repository.side_effect = [repo]
+
+        repos = self.ctrl.load_repositories([repo_data])
         self.driver.get_repository.assert_called_once_with(
-            self.context.connection, "test1", "x86_64", consumer
+            self.context.connection, repo_data, self.ctrl.arch
         )
-        for url in [six.u("file:///test1"), ["file:///test1"]]:
-            self.driver.reset_mock()
-            self.ctrl.load_repositories(url, consumer)
-            if not isinstance(url, list):
-                url = [url]
-            self.driver.parse_urls.assert_called_once_with(url)
+        self.assertEqual([repo], repos)
 
     def test_load_packages(self):
         repo = mock.MagicMock()
         consumer = mock.MagicMock()
-        self.ctrl.load_packages([repo], consumer)
+        self.ctrl.load_packages(repo, consumer)
         self.driver.get_packages.assert_called_once_with(
             self.context.connection, repo, consumer
         )
@@ -78,30 +75,33 @@ class TestRepositoryController(base.TestCase):
     @mock.patch("packetary.controllers.repository.os")
     def test_assign_packages(self, os):
         repo = gen_repository(url="/test/repo")
-        packages = [
+        packages = {
             gen_package(name="test1", repository=repo),
             gen_package(name="test2", repository=repo)
-        ]
-        existed_packages = [
-            gen_package(name="test3", repository=repo),
-            gen_package(name="test2", repository=repo)
-        ]
-
+        }
         os.path.join = lambda *x: "/".join(x)
-        self.driver.get_packages = CallbacksAdapter()
-        self.driver.get_packages.return_value = existed_packages
-        self.ctrl.assign_packages(repo, packages, True)
-        os.remove.assert_not_called()
-        all_packages = set(packages + existed_packages)
-        self.driver.rebuild_repository.assert_called_once_with(
-            repo, all_packages
+        self.ctrl.assign_packages(repo, packages)
+        self.driver.add_packages.assert_called_once_with(
+            self.ctrl.context.connection, repo, packages
         )
-        self.driver.rebuild_repository.reset_mock()
-        self.ctrl.assign_packages(repo, packages, False)
-        self.driver.rebuild_repository.assert_called_once_with(
-            repo, set(packages)
+
+    @mock.patch("packetary.controllers.repository.os")
+    def test_fork_repository(self, os):
+        os.path.join.side_effect = lambda *args: "".join(args)
+        repo = gen_repository(name="test1", url="file:///test")
+        clone = copy.copy(repo)
+        clone.url = "/root/repo"
+        self.driver.fork_repository.return_value = clone
+        self.context.connection.retrieve.side_effect = [0, 10]
+        self.ctrl.fork_repository(repo, "./repo", False, False)
+        self.driver.fork_repository.assert_called_once_with(
+            self.context.connection, repo, "./repo/test", False, False
         )
-        os.remove.assert_called_once_with("/test/repo/test3.pkg")
+        repo.path = "os"
+        self.ctrl.fork_repository(repo, "./repo/", False, False)
+        self.driver.fork_repository.assert_called_with(
+            self.context.connection, repo, "./repo/os", False, False
+        )
 
     def test_copy_packages(self):
         repo = gen_repository(url="file:///repo/")
@@ -112,8 +112,9 @@ class TestRepositoryController(base.TestCase):
         target = gen_repository(url="/test/repo")
         self.context.connection.retrieve.side_effect = [0, 10]
         observer = mock.MagicMock()
-        self.ctrl.copy_packages(target, packages, True, observer)
-        observer.assert_has_calls([mock.call(0), mock.call(10)])
+        self.ctrl._copy_packages(target, packages, observer)
+        observer.assert_any_call(0)
+        observer.assert_any_call(10)
         self.context.connection.retrieve.assert_any_call(
             "file:///repo/test1.pkg",
             "/test/repo/test1.pkg",
@@ -124,22 +125,13 @@ class TestRepositoryController(base.TestCase):
             "/test/repo/test2.pkg",
             size=-1
         )
-        self.driver.rebuild_repository.assert_called_once_with(
-            target, set(packages)
-        )
 
-    @mock.patch("packetary.controllers.repository.os")
-    def test_clone_repository(self, os):
-        os.path.abspath.return_value = "/root/repo"
-        repos = [
-            gen_repository(name="test1"),
-            gen_repository(name="test2")
+    def test_copy_packages_does_not_affect_packages_in_same_repo(self):
+        repo = gen_repository(url="file:///repo/")
+        packages = [
+            gen_package(name="test1", repository=repo, filesize=10),
+            gen_package(name="test2", repository=repo, filesize=-1)
         ]
-        clones = [copy.copy(x) for x in repos]
-        self.driver.fork_repository.side_effect = clones
-        mirrors = self.ctrl.clone_repositories(repos, "./repo")
-        for r in repos:
-            self.driver.fork_repository.assert_any_call(
-                self.context.connection, r, "/root/repo", False, False
-            )
-        self.assertEqual(mirrors, dict(zip(repos, clones)))
+        observer = mock.MagicMock()
+        self.ctrl._copy_packages(repo, packages, observer)
+        self.assertFalse(self.context.connection.retrieve.called)

@@ -16,6 +16,7 @@
 #    with this program; if not, write to the Free Software Foundation, Inc.,
 #    51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 
+import copy
 import mock
 
 from packetary.api import Configuration
@@ -27,197 +28,174 @@ from packetary.tests.stubs.helpers import CallbacksAdapter
 
 
 class TestRepositoryApi(base.TestCase):
-    def test_get_packages_as_is(self):
-        controller = CallbacksAdapter()
-        pkg = generator.gen_package(name="test")
-        controller.load_packages.side_effect = [
-            pkg
-        ]
-        api = RepositoryApi(controller)
-        packages = api.get_packages("file:///repo1")
-        self.assertEqual(1, len(packages))
-        package = packages.pop()
-        self.assertIs(pkg, package)
+    def setUp(self):
+        self.controller = CallbacksAdapter()
+        self.api = RepositoryApi(self.controller)
+        self.repo_data = {"name": "repo1", "url": "file:///repo1"}
+        self.repo = generator.gen_repository(**self.repo_data)
+        self.controller.load_repositories.return_value = [self.repo]
+        self._generate_packages()
 
-    def test_get_packages_with_depends_resolving(self):
-        controller = CallbacksAdapter()
-        controller.load_packages.side_effect = [
-            [
-                generator.gen_package(idx=1, requires=None),
-                generator.gen_package(
-                    idx=2, requires=[generator.gen_relation("package1")]
-                ),
-                generator.gen_package(
-                    idx=3, requires=[generator.gen_relation("package1")]
-                ),
-                generator.gen_package(idx=4, requires=None),
-                generator.gen_package(idx=5, requires=None),
-            ],
+    def _generate_packages(self):
+        self.packages = [
+            generator.gen_package(idx=1, repository=self.repo, requires=None),
+            generator.gen_package(idx=2, repository=self.repo, requires=None),
             generator.gen_package(
-                idx=6, requires=[generator.gen_relation("package2")]
+                idx=3, repository=self.repo, mandatory=True,
+                requires=[generator.gen_relation("package2")]
             ),
+            generator.gen_package(
+                idx=4, repository=self.repo, mandatory=False,
+                requires=[generator.gen_relation("package1")]
+            ),
+            generator.gen_package(
+                idx=5, repository=self.repo,
+                requires=[generator.gen_relation("package6")])
         ]
+        self.controller.load_packages.return_value = self.packages
 
-        api = RepositoryApi(controller)
-        packages = api.get_packages([
-            "file:///repo1", "file:///repo2"
-        ],
-            "file:///repo3", ["package4"]
+    @mock.patch("packetary.api.RepositoryController")
+    @mock.patch("packetary.api.ConnectionsManager")
+    def test_create_with_config(self, connection_mock, controller_mock):
+        config = Configuration(
+            http_proxy="http://localhost", https_proxy="https://localhost",
+            retries_num=10, threads_num=8, ignore_errors_num=6
+        )
+        RepositoryApi.create(config, "deb", "x86_64")
+        connection_mock.assert_called_once_with(
+            proxy="http://localhost",
+            secure_proxy="https://localhost",
+            retries_num=10
+        )
+        controller_mock.load.assert_called_once_with(
+            mock.ANY, "deb", "x86_64"
         )
 
+    @mock.patch("packetary.api.RepositoryController")
+    @mock.patch("packetary.api.ConnectionsManager")
+    def test_create_with_context(self, connection_mock, controller_mock):
+        config = Configuration(
+            http_proxy="http://localhost", https_proxy="https://localhost",
+            retries_num=10, threads_num=8, ignore_errors_num=6
+        )
+        context = Context(config)
+        RepositoryApi.create(context, "deb", "x86_64")
+        connection_mock.assert_called_once_with(
+            proxy="http://localhost",
+            secure_proxy="https://localhost",
+            retries_num=10
+        )
+        controller_mock.load.assert_called_once_with(
+            context, "deb", "x86_64"
+        )
+
+    def test_get_packages_as_is(self):
+        packages = self.api.get_packages([self.repo_data], None)
+        self.assertEqual(5, len(packages))
+        self.assertItemsEqual(
+            self.packages,
+            packages
+        )
+
+    def test_get_packages_by_requirements_with_mandatory(self):
+        packages = self.api.get_packages(
+            [self.repo_data], [{"name": "package1"}], True
+        )
         self.assertEqual(3, len(packages))
         self.assertItemsEqual(
-            ["package1", "package4", "package2"],
+            ["package1", "package2", "package3"],
             (x.name for x in packages)
         )
-        controller.load_repositories.assert_any_call(
-            ["file:///repo1", "file:///repo2"]
+
+    def test_get_packages_by_requirements_without_mandatory(self):
+        packages = self.api.get_packages(
+            [self.repo_data], [{"name": "package4"}], False
         )
-        controller.load_repositories.assert_any_call(
-            "file:///repo3"
+        self.assertEqual(2, len(packages))
+        self.assertItemsEqual(
+            ["package1", "package4"],
+            (x.name for x in packages)
         )
 
     def test_clone_repositories_as_is(self):
-        controller = CallbacksAdapter()
-        repo = generator.gen_repository(name="repo1")
-        packages = [
-            generator.gen_package(name="test1", repository=repo),
-            generator.gen_package(name="test2", repository=repo)
-        ]
-        mirror = generator.gen_repository(name="mirror")
-        controller.load_repositories.return_value = repo
-        controller.load_packages.return_value = packages
-        controller.clone_repositories.return_value = {repo: mirror}
-        controller.copy_packages.return_value = [0, 1]
-        api = RepositoryApi(controller)
-        stats = api.clone_repositories(
-            ["file:///repo1"], "/mirror", keep_existing=True
+        # return value is used as statistics
+        mirror = copy.copy(self.repo)
+        mirror.url = "file:///mirror/repo"
+        self.controller.fork_repository.return_value = mirror
+        self.controller.assign_packages.return_value = [0, 1, 1, 1, 0, 6]
+        stats = self.api.clone_repositories([self.repo_data], None, "/mirror")
+        self.controller.fork_repository.assert_called_once_with(
+            self.repo, '/mirror', False, False
+        )
+        self.controller.assign_packages.assert_called_once_with(
+            mirror, set(self.packages)
+        )
+        self.assertEqual(6, stats.total)
+        self.assertEqual(4, stats.copied)
+
+    def test_clone_by_requirements_with_mandatory(self):
+        # return value is used as statistics
+        mirror = copy.copy(self.repo)
+        mirror.url = "file:///mirror/repo"
+        self.controller.fork_repository.return_value = mirror
+        self.controller.assign_packages.return_value = [0, 1, 1]
+        stats = self.api.clone_repositories(
+            [self.repo_data], [{"name": "package1"}],
+            "/mirror", include_mandatory=True
+        )
+        packages = {self.packages[0], self.packages[1], self.packages[2]}
+        self.controller.fork_repository.assert_called_once_with(
+            self.repo, '/mirror', False, False
+        )
+        self.controller.assign_packages.assert_called_once_with(
+            mirror, packages
+        )
+        self.assertEqual(3, stats.total)
+        self.assertEqual(2, stats.copied)
+
+    def test_clone_by_requirements_without_mandatory(self):
+        # return value is used as statistics
+        mirror = copy.copy(self.repo)
+        mirror.url = "file:///mirror/repo"
+        self.controller.fork_repository.return_value = mirror
+        self.controller.assign_packages.return_value = [0, 4]
+        stats = self.api.clone_repositories(
+            [self.repo_data], [{"name": "package4"}],
+            "/mirror", include_mandatory=False
+        )
+        packages = {self.packages[0], self.packages[3]}
+        self.controller.fork_repository.assert_called_once_with(
+            self.repo, '/mirror', False, False
+        )
+        self.controller.assign_packages.assert_called_once_with(
+            mirror, packages
         )
         self.assertEqual(2, stats.total)
         self.assertEqual(1, stats.copied)
-        controller.copy_packages.assert_called_once_with(
-            mirror, set(packages), True
-        )
-
-    def test_copy_minimal_subset_of_repository(self):
-        controller = CallbacksAdapter()
-        repo1 = generator.gen_repository(name="repo1")
-        repo2 = generator.gen_repository(name="repo2")
-        repo3 = generator.gen_repository(name="repo3")
-        mirror1 = generator.gen_repository(name="mirror1")
-        mirror2 = generator.gen_repository(name="mirror2")
-        pkg_group1 = [
-            generator.gen_package(
-                idx=1, requires=None, repository=repo1
-            ),
-            generator.gen_package(
-                idx=1, version=2, requires=None, repository=repo1
-            ),
-            generator.gen_package(
-                idx=2, requires=None, repository=repo1
-            )
-        ]
-        pkg_group2 = [
-            generator.gen_package(
-                idx=4,
-                requires=[generator.gen_relation("package1")],
-                repository=repo2,
-                mandatory=True,
-            )
-        ]
-        pkg_group3 = [
-            generator.gen_package(
-                idx=3, requires=None, repository=repo1
-            )
-        ]
-        controller.load_repositories.side_effect = [[repo1, repo2], repo3]
-        controller.load_packages.side_effect = [
-            pkg_group1 + pkg_group2 + pkg_group3,
-            generator.gen_package(
-                idx=6,
-                repository=repo3,
-                requires=[generator.gen_relation("package2")]
-            )
-        ]
-        controller.clone_repositories.return_value = {
-            repo1: mirror1, repo2: mirror2
-        }
-        controller.copy_packages.return_value = 1
-        api = RepositoryApi(controller)
-        api.clone_repositories(
-            ["file:///repo1", "file:///repo2"], "/mirror",
-            ["file:///repo3"],
-            keep_existing=True
-        )
-        controller.copy_packages.assert_any_call(
-            mirror1, set(pkg_group1), True
-        )
-        controller.copy_packages.assert_any_call(
-            mirror2, set(pkg_group2), True
-        )
-        self.assertEqual(2, controller.copy_packages.call_count)
 
     def test_get_unresolved(self):
-        controller = CallbacksAdapter()
-        pkg = generator.gen_package(
-            name="test", requires=[generator.gen_relation("test2")]
-        )
-        controller.load_packages.side_effect = [
-            pkg
-        ]
-        api = RepositoryApi(controller)
-        r = api.get_unresolved_dependencies("file:///repo1")
-        controller.load_repositories.assert_called_once_with("file:///repo1")
-        self.assertItemsEqual(
-            ["test2"],
-            (x.name for x in r)
-        )
+        unresolved = self.api.get_unresolved_dependencies([self.repo_data])
+        self.assertItemsEqual(["package6"], (x.name for x in unresolved))
 
-    def test_get_unresolved_with_main(self):
-        controller = CallbacksAdapter()
-        pkg1 = generator.gen_package(
-            name="test1", requires=[
-                generator.gen_relation("test2"),
-                generator.gen_relation("test3")
-            ]
-        )
-        pkg2 = generator.gen_package(
-            name="test2", requires=[generator.gen_relation("test4")]
-        )
-        controller.load_packages.side_effect = [
-            pkg1, pkg2
-        ]
-        api = RepositoryApi(controller)
-        r = api.get_unresolved_dependencies("file:///repo1", "file:///repo2")
-        controller.load_repositories.assert_any_call("file:///repo1")
-        controller.load_repositories.assert_any_call("file:///repo2")
-        self.assertItemsEqual(
-            ["test3"],
-            (x.name for x in r)
-        )
+    def test_load_requirements(self):
+        expected = {
+            generator.gen_relation("test1"),
+            generator.gen_relation("test2", ["<", "3"]),
+            generator.gen_relation("test2", [">", "1"]),
+        }
+        actual = set(self.api._load_requirements(
+            [{"name": "test1"}, {"name": "test2", "versions": ["< 3", "> 1"]}]
+        ))
+        self.assertEqual(expected, actual)
+        self.assertIsNone(self.api._load_requirements(None))
 
-    def test_parse_requirements(self):
-        requirements = RepositoryApi._parse_requirements(
-            ["p1 le 2 | p2 | p3 ge 2"]
-        )
+    def test_validate_repos_data(self):
+        # TODO(bgaifullin) implement me
+        pass
 
-        expected = generator.gen_relation(
-            "p1",
-            ["le", '2'],
-            generator.gen_relation(
-                "p2",
-                None,
-                generator.gen_relation(
-                    "p3",
-                    ["ge", '2']
-                )
-            )
-        )
-        self.assertEqual(1, len(requirements))
-        self.assertEqual(
-            list(expected),
-            list(requirements.pop())
-        )
+    def test_validate_requirements_data(self):
+        # TODO(bgaifullin) implement me
+        pass
 
 
 class TestContext(base.TestCase):

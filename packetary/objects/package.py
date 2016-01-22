@@ -59,10 +59,10 @@ class Package(ComparableObject):
         return Package(**self.__dict__)
 
     def __str__(self):
-        return "{0} {1}".format(self.name, self.version)
+        return "{0} ({1})".format(self.name, self.version)
 
     def __unicode__(self):
-        return u"{0} {1}".format(self.name, self.version)
+        return u"{0} ({1})".format(self.name, self.version)
 
     def __hash__(self):
         return hash((self.name, self.version))

@@ -20,9 +20,7 @@ import mock
 import os.path as path
 import six
 
-
 from packetary.drivers import deb_driver
-from packetary.library.utils import localize_repo_url
 from packetary.tests import base
 from packetary.tests.stubs.generator import gen_package
 from packetary.tests.stubs.generator import gen_repository
@@ -30,7 +28,6 @@ from packetary.tests.stubs.helpers import get_compressed
 
 
 PACKAGES = path.join(path.dirname(__file__), "data", "Packages")
-RELEASE = path.join(path.dirname(__file__), "data", "Release")
 
 
 class TestDebDriver(base.TestCase):
@@ -42,75 +39,79 @@ class TestDebDriver(base.TestCase):
 
     def setUp(self):
         self.connection = mock.MagicMock()
+        self.repo = gen_repository(
+            name="trusty", section=("trusty", "main"), url="file:///repo"
+        )
 
-    def test_parse_urls(self):
-        self.assertItemsEqual(
-            [
-                ("http://host", "trusty", "main"),
-                ("http://host", "trusty", "restricted"),
-            ],
-            self.driver.parse_urls(
-                ["http://host/dists/ trusty main restricted"]
-            )
-        )
-        self.assertItemsEqual(
-            [("http://host", "trusty", "main")],
-            self.driver.parse_urls(
-                ["http://host/dists trusty main"]
-            )
-        )
-        self.assertItemsEqual(
-            [("http://host", "trusty", "main")],
-            self.driver.parse_urls(
-                ["http://host/ trusty main"]
-            )
-        )
-        self.assertItemsEqual(
-            [
-                ("http://host", "trusty", "main"),
-                ("http://host2", "trusty", "main"),
-            ],
-            self.driver.parse_urls(
-                [
-                    "http://host/ trusty main",
-                    "http://host2/dists/ trusty main",
-                ]
-            )
+    def test_priority_sort(self):
+        repos = [
+            {"name": "repo0"},
+            {"name": "repo1", "priority": 0},
+            {"name": "repo2", "priority": 1000},
+            {"name": "repo3", "priority": None}
+        ]
+        repos.sort(key=self.driver.priority_sort)
+
+        self.assertEqual(
+            ["repo2", "repo0", "repo3", "repo1"],
+            [x['name'] for x in repos]
         )
 
     def test_get_repository(self):
         repos = []
-        with open(RELEASE, "rb") as stream:
-            self.connection.open_stream.return_value = stream
-            self.driver.get_repository(
-                self.connection,
-                ("http://host", "trusty", "main"),
-                "x86_64",
-                repos.append
-            )
-        self.connection.open_stream.assert_called_once_with(
+        repo_data = {
+            "name": "repo1", "url": "http://host", "suite": "trusty",
+            "section": ["main", "universe"], "path": "my_path"
+        }
+        self.connection.open_stream.return_value = {"Origin": "Ubuntu"}
+        self.driver.get_repository(
+            self.connection,
+            repo_data,
+            "x86_64",
+            repos.append
+        )
+        self.connection.open_stream.assert_any_call(
             "http://host/dists/trusty/main/binary-amd64/Release"
         )
-        self.assertEqual(1, len(repos))
+        self.connection.open_stream.assert_any_call(
+            "http://host/dists/trusty/universe/binary-amd64/Release"
+        )
+        self.assertEqual(2, len(repos))
         repo = repos[0]
-        self.assertEqual(("trusty", "main"), repo.name)
+        self.assertEqual("repo1", repo.name)
+        self.assertEqual(("trusty", "main"), repo.section)
+        self.assertEqual("Ubuntu", repo.origin)
+        self.assertEqual("x86_64", repo.architecture)
+        self.assertEqual("http://host/", repo.url)
+        self.assertEqual("my_path", repo.path)
+        repo = repos[1]
+        self.assertEqual("repo1", repo.name)
+        self.assertEqual(("trusty", "universe"), repo.section)
         self.assertEqual("Ubuntu", repo.origin)
         self.assertEqual("x86_64", repo.architecture)
         self.assertEqual("http://host/", repo.url)
 
+    def test_get_flat_repository(self):
+        with self.assertRaisesRegexp(ValueError, "does not supported"):
+            self.driver.get_repository(
+                self.connection,
+                {"url": "http://host", "suite": "trusty"},
+                "x86_64",
+                lambda x: None
+            )
+
     def test_get_packages(self):
         packages = []
-        repo = gen_repository(name=("trusty", "main"), url="http://host/")
         with open(PACKAGES, "rb") as s:
             self.connection.open_stream.return_value = get_compressed(s)
             self.driver.get_packages(
                 self.connection,
-                repo,
+                self.repo,
                 packages.append
             )
 
         self.connection.open_stream.assert_called_once_with(
-            "http://host/dists/trusty/main/binary-amd64/Packages.gz",
+            "file:///repo/dists/trusty/main/binary-amd64/Packages.gz",
         )
         self.assertEqual(1, len(packages))
         package = packages[0]
@@ -132,7 +133,7 @@ class TestDebDriver(base.TestCase):
         self.assertItemsEqual(
             [
                 'test-main (any)',
-                'test2 (ge 0.8.16~exp9) | tes2-old (any)',
+                'test2 (>= 0.8.16~exp9) | tes2-old (any)',
                 'test3 (any)'
             ],
             (str(x) for x in package.requires)
@@ -142,7 +143,7 @@ class TestDebDriver(base.TestCase):
             (str(x) for x in package.provides)
         )
         self.assertItemsEqual(
-            ["test-old (any)"],
+            [],
             (str(x) for x in package.obsoletes)
         )
 
@@ -156,10 +157,8 @@ class TestDebDriver(base.TestCase):
         os=mock.DEFAULT,
         open=mock.DEFAULT
     )
-    def test_rebuild_repository(self, os, debfile, deb822, fcntl,
-                                gzip, utils, open):
-        repo = gen_repository(name=("trusty", "main"), url="file:///repo")
-        package = gen_package(name="test", repository=repo)
+    def test_add_packages(self, os, debfile, deb822, fcntl, gzip, utils, open):
+        package = gen_package(name="test", repository=self.repo)
         os.path.join = lambda *x: "/".join(x)
         utils.get_path_from_url = lambda x: x[7:]
 
@@ -171,7 +170,7 @@ class TestDebDriver(base.TestCase):
             mock.MagicMock()   # Packages.gz, rb
         ]
         open.side_effect = files
-        self.driver.rebuild_repository(repo, [package])
+        self.driver.add_packages(self.connection, self.repo, {package})
         open.assert_any_call(
             "/repo/dists/trusty/main/binary-amd64/Packages", "wb"
         )
@@ -186,27 +185,24 @@ class TestDebDriver(base.TestCase):
         gzip=mock.DEFAULT,
         open=mock.DEFAULT,
         os=mock.DEFAULT,
-        utils=mock.DEFAULT
     )
-    def test_fork_repository(self, deb822, gzip, open, os, utils):
+    @mock.patch("packetary.drivers.deb_driver.utils.ensure_dir_exist")
+    def test_fork_repository(self, mkdir_mock, deb822, gzip, open, os):
         os.path.sep = "/"
         os.path.join = lambda *x: "/".join(x)
-        utils.get_path_from_url = lambda x: x
-        utils.localize_repo_url = localize_repo_url
-        repo = gen_repository(
-            name=("trusty", "main"), url="http://localhost/test/"
-        )
         files = [
             mock.MagicMock(),
             mock.MagicMock()
         ]
         open.side_effect = files
-        new_repo = self.driver.fork_repository(self.connection, repo, "/root")
-        self.assertEqual(repo.name, new_repo.name)
-        self.assertEqual(repo.architecture, new_repo.architecture)
-        self.assertEqual(repo.origin, new_repo.origin)
-        self.assertEqual("/root/test/", new_repo.url)
-        utils.ensure_dir_exist.assert_called_once_with(os.path.dirname())
+        new_repo = self.driver.fork_repository(
+            self.connection, self.repo, "/root/test"
+        )
+        self.assertEqual(self.repo.name, new_repo.name)
+        self.assertEqual(self.repo.architecture, new_repo.architecture)
+        self.assertEqual(self.repo.origin, new_repo.origin)
+        self.assertEqual("file:///root/test/", new_repo.url)
+        mkdir_mock.assert_called_once_with(os.path.dirname())
         open.assert_any_call(
             "/root/test/dists/trusty/main/binary-amd64/Release", "wb"
         )
@@ -225,9 +221,7 @@ class TestDebDriver(base.TestCase):
         os=mock.DEFAULT,
         utils=mock.DEFAULT
     )
-    def test_update_suite_index(
-            self, os, fcntl, gzip, open, utils):
-        repo = gen_repository(name=("trusty", "main"), url="/repo")
+    def test_update_suite_index(self, os, fcntl, gzip, open, utils):
         files = [
             mock.MagicMock(),  # Release, a+b
             mock.MagicMock(),  # Packages, rb
@@ -254,7 +248,7 @@ class TestDebDriver(base.TestCase):
             )
             for name in deb_driver._REPOSITORY_FILES
         )
-        self.driver._update_suite_index(repo)
+        self.driver._update_suite_index(self.repo)
         open.assert_any_call("/root/dists/trusty/Release", "a+b")
         files[0].seek.assert_called_once_with(0)
         files[0].truncate.assert_called_once_with(0)
@@ -269,6 +263,5 @@ class TestDebDriver(base.TestCase):
                 .format(k, k + "_value")
             ))
         open.assert_any_call("/root/dists/trusty/Release", "a+b")
-        print([x.fileno() for x in files])
         fcntl.flock.assert_any_call(files[0].fileno(), fcntl.LOCK_EX)
         fcntl.flock.assert_any_call(files[0].fileno(), fcntl.LOCK_UN)
