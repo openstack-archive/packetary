@@ -39,11 +39,11 @@ from packetary.objects import Repository
 
 
 _OPERATORS_MAPPING = {
-    '>>': 'gt',
-    '<<': 'lt',
-    '=': 'eq',
-    '>=': 'ge',
-    '<=': 'le',
+    '>>': '>',
+    '<<': '<',
+    '=': '=',
+    '>=': '>=',
+    '<=': '<=',
 }
 
 _ARCHITECTURES = {
@@ -77,46 +77,49 @@ _CHECKSUM_METHODS = (
     "SHA256"
 )
 
+_DEFAULT_PRIORITY = 500
+
 _checksum_collector = checksum_composite('md5', 'sha1', 'sha256')
 
 
 class DebRepositoryDriver(RepositoryDriverBase):
-    def parse_urls(self, urls):
-        """Overrides method of superclass."""
-        for url in urls:
-            try:
-                tokens = iter(x for x in url.split(" ") if x)
-                base, suite = next(tokens), next(tokens)
-                components = list(tokens)
-            except StopIteration:
-                raise ValueError("Invalid url: {0}".format(url))
+    def priority_sort(self, repo_data):
+        # DEB repository expects general values from 0 to 1000. 0
+        # to have lowest priority and 1000 -- the highest. Note that a
+        # priority above 1000 will allow even downgrades no matter the version
+        # of the prioritary package
+        priority = repo_data.get('priority')
+        if priority is None:
+            priority = _DEFAULT_PRIORITY
+        return -priority
 
-            base = base.rstrip("/")
-            if base.endswith("/dists"):
-                base = base[:-6]
+    def get_repository(self, connection, repository_data, arch, consumer):
+        url = repository_data['url'].rstrip("/")
+        suite = repository_data['suite']
+        components = repository_data.get('section')
+        path = repository_data.get('path')
+        name = repository_data.get('name')
 
-            # TODO(Flat Repository Format[1])
-            # [1] https://wiki.debian.org/RepositoryFormat
-            for component in components:
-                yield (base, suite, component)
+        # TODO(bgaifullin) implement support for flat repisotory format [1]
+        # [1] https://wiki.debian.org/RepositoryFormat#Flat_Repository_Format
+        if components is None:
+            raise ValueError("The flat format does not supported.")
 
-    def get_repository(self, connection, url, arch, consumer):
-        """Overrides method of superclass."""
-
-        base, suite, component = url
-        release = self._get_url_of_metafile(
-            (base, suite, component, arch), "Release"
-        )
-        deb_release = deb822.Release(connection.open_stream(release))
-        consumer(Repository(
-            name=(deb_release["Archive"], deb_release["Component"]),
-            architecture=arch,
-            origin=deb_release["origin"],
-            url=base + "/"
-        ))
+        for component in components:
+            release = self._get_url_of_metafile(
+                (url, suite, component, arch), "Release"
+            )
+            deb_release = deb822.Release(connection.open_stream(release))
+            consumer(Repository(
+                name=name,
+                architecture=arch,
+                origin=deb_release["origin"],
+                url=url + "/",
+                section=(suite, component),
+                path=path
+            ))
 
     def get_packages(self, connection, repository, consumer):
-        """Overrides method of superclass."""
         index = self._get_url_of_metafile(repository, "Packages.gz")
         stream = GzipDecompress(connection.open_stream(index))
         self.logger.info("loading packages from %s ...", repository)
@@ -140,7 +143,8 @@ class DebRepositoryDriver(RepositoryDriverBase):
                     requires=self._get_relations(
                         dpkg, "depends", "pre-depends", "recommends"
                     ),
-                    obsoletes=self._get_relations(dpkg, "replaces"),
+                    # The deb does not have obsoletes section
+                    obsoletes=[],
                     provides=self._get_relations(dpkg, "provides"),
                 ))
             except KeyError as e:
@@ -153,8 +157,7 @@ class DebRepositoryDriver(RepositoryDriverBase):
 
         self.logger.info("loaded: %d packages from %s.", counter, repository)
 
-    def rebuild_repository(self, repository, packages):
-        """Overrides method of superclass."""
+    def add_packages(self, connection, repository, packages):
         basedir = utils.get_path_from_url(repository.url)
         index_file = utils.get_path_from_url(
             self._get_url_of_metafile(repository, "Packages")
@@ -162,6 +165,8 @@ class DebRepositoryDriver(RepositoryDriverBase):
         utils.ensure_dir_exist(os.path.dirname(index_file))
         index_gz = index_file + ".gz"
         count = 0
+        # load existing packages
+        self.get_packages(connection, repository, packages.add)
         with open(index_file, "wb") as fd1:
             with closing(gzip.open(index_gz, "wb")) as fd2:
                 writer = utils.composite_writer(fd1, fd2)
@@ -185,7 +190,7 @@ class DebRepositoryDriver(RepositoryDriverBase):
         # TODO(download gpk)
         # TODO(sources and locales)
         new_repo = copy.copy(repository)
-        new_repo.url = utils.localize_repo_url(destination, repository.url)
+        new_repo.url = utils.get_url_from_path(destination).rstrip("/") + "/"
         packages_file = utils.get_path_from_url(
             self._get_url_of_metafile(new_repo, "Packages")
         )
@@ -200,8 +205,8 @@ class DebRepositoryDriver(RepositoryDriverBase):
         release = deb822.Release()
         release["Origin"] = repository.origin
         release["Label"] = repository.origin
-        release["Archive"] = repository.name[0]
-        release["Component"] = repository.name[1]
+        release["Archive"] = repository.section[0]
+        release["Component"] = repository.section[1]
         release["Architecture"] = _ARCHITECTURES[repository.architecture]
         with open(release_file, "wb") as fd:
             release.dump(fd)
@@ -214,7 +219,7 @@ class DebRepositoryDriver(RepositoryDriverBase):
         """Updates the Release file in the suite."""
         path = os.path.join(
             utils.get_path_from_url(repository.url),
-            "dists", repository.name[0]
+            "dists", repository.section[0]
         )
         release_path = os.path.join(path, "Release")
         self.logger.info(
@@ -304,7 +309,7 @@ class DebRepositoryDriver(RepositoryDriverBase):
         """
         if isinstance(repo_or_comps, Repository):
             baseurl = repo_or_comps.url
-            suite, component = repo_or_comps.name
+            suite, component = repo_or_comps.section
             arch = repo_or_comps.architecture
         else:
             baseurl, suite, component, arch = repo_or_comps
@@ -329,12 +334,12 @@ class DebRepositoryDriver(RepositoryDriverBase):
         )
         release.setdefault("Origin", repository.origin)
         release.setdefault("Label", repository.origin)
-        release.setdefault("Suite", repository.name[0])
-        release.setdefault("Codename", repository.name[0].split("-", 1)[0])
+        release.setdefault("Suite", repository.section[0])
+        release.setdefault("Codename", repository.section[0].split("-", 1)[0])
         release.setdefault("Description", "The packages repository.")
 
         keys = ("Architectures", "Components")
-        values = (repository.architecture, repository.name[1])
+        values = (repository.architecture, repository.section[1])
         for key, value in six.moves.zip(keys, values):
             if key in release:
                 release[key] = utils.append_token_to_string(
