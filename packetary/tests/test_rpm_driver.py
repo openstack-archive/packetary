@@ -22,7 +22,6 @@ import sys
 
 import six
 
-from packetary.library.utils import localize_repo_url
 from packetary.objects import FileChecksum
 from packetary.tests import base
 from packetary.tests.stubs.generator import gen_repository
@@ -53,31 +52,33 @@ class TestRpmDriver(base.TestCase):
         self.createrepo.reset_mock()
         self.connection = mock.MagicMock()
 
-    def test_parse_urls(self):
-        self.assertItemsEqual(
-            [
-                "http://host/centos/os",
-                "http://host/centos/updates"
-            ],
-            self.driver.parse_urls([
-                "http://host/centos/os",
-                "http://host/centos/updates/",
-            ])
+    def test_priority_sort(self):
+        repos = [
+            {"name": "repo0"},
+            {"name": "repo1", "priority": 1},
+            {"name": "repo2", "priority": 99},
+            {"name": "repo3", "priority": None}
+        ]
+        repos.sort(key=self.driver.priority_sort)
+
+        self.assertEqual(
+            ["repo1", "repo0", "repo3", "repo2"],
+            [x['name'] for x in repos]
         )
 
     def test_get_repository(self):
         repos = []
-
+        repo_data = {"name": "os", "url": "http://host/centos/os/x86_64/"}
         self.driver.get_repository(
             self.connection,
-            "http://host/centos/os/x86_64",
+            repo_data,
             "x86_64",
             repos.append
         )
 
         self.assertEqual(1, len(repos))
         repo = repos[0]
-        self.assertEqual("/centos/os/x86_64", repo.name)
+        self.assertEqual("os", repo.name)
         self.assertEqual("", repo.origin)
         self.assertEqual("x86_64", repo.architecture)
         self.assertEqual("http://host/centos/os/x86_64/", repo.url)
@@ -125,7 +126,7 @@ class TestRpmDriver(base.TestCase):
             "Packages/test1.rpm", package.filename
         )
         self.assertItemsEqual(
-            ['test2 (eq 0-1.1.1.1-1.el7)'],
+            ['test2 (= 0-1.1.1.1-1.el7)'],
             (str(x) for x in package.requires)
         )
         self.assertItemsEqual(
@@ -165,7 +166,7 @@ class TestRpmDriver(base.TestCase):
         self.assertTrue(package.mandatory)
 
     @mock.patch("packetary.drivers.rpm_driver.shutil")
-    def test_rebuild_repository(self, shutil):
+    def test_add_packages(self, shutil):
         self.createrepo.MDError = ValueError
         self.createrepo.MetaDataGenerator().doFinalMove.side_effect = [
             None, self.createrepo.MDError()
@@ -174,7 +175,7 @@ class TestRpmDriver(base.TestCase):
         self.createrepo.MetaDataConfig().outputdir = "/repo/os/x86_64"
         self.createrepo.MetaDataConfig().tempdir = "tmp"
 
-        self.driver.rebuild_repository(repo, set())
+        self.driver.add_packages(self.connection, repo, set())
 
         self.assertEqual(
             "/repo/os/x86_64",
@@ -189,24 +190,23 @@ class TestRpmDriver(base.TestCase):
             .doFinalMove.assert_called_once_with()
 
         with self.assertRaises(RuntimeError):
-            self.driver.rebuild_repository(repo, set())
+            self.driver.add_packages(self.connection, repo, set())
         shutil.rmtree.assert_called_once_with(
             "/repo/os/x86_64/tmp", ignore_errors=True
         )
 
-    @mock.patch("packetary.drivers.rpm_driver.utils")
-    def test_fork_repository(self, utils):
+    @mock.patch("packetary.drivers.rpm_driver.utils.ensure_dir_exist")
+    def test_fork_repository(self, ensure_dir_exists_mock):
         repo = gen_repository("os", url="http://localhost/os/x86_64/")
-        utils.localize_repo_url = localize_repo_url
+        self.createrepo.MetaDataGenerator().doFinalMove.side_effect = [None]
         new_repo = self.driver.fork_repository(
             self.connection,
             repo,
-            "/repo"
+            "/repo/os/x86_64"
         )
-
-        utils.ensure_dir_exist.assert_called_once_with("/repo/os/x86_64/")
+        ensure_dir_exists_mock.assert_called_once_with("/repo/os/x86_64")
         self.assertEqual(repo.name, new_repo.name)
         self.assertEqual(repo.architecture, new_repo.architecture)
-        self.assertEqual("/repo/os/x86_64/", new_repo.url)
+        self.assertEqual("file:///repo/os/x86_64/", new_repo.url)
         self.createrepo.MetaDataGenerator()\
             .doFinalMove.assert_called_once_with()

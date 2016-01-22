@@ -17,10 +17,10 @@
 #    51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 
 from packetary.cli.commands.base import BaseProduceOutputCommand
-from packetary.cli.commands.utils import read_lines_from_file
+from packetary.cli.commands.base import PackagesMixin
 
 
-class ListOfPackages(BaseProduceOutputCommand):
+class ListOfPackages(PackagesMixin, BaseProduceOutputCommand):
     """Gets the list of packages from repository(es)."""
 
     columns = (
@@ -35,51 +35,11 @@ class ListOfPackages(BaseProduceOutputCommand):
         "requires",
     )
 
-    def get_parser(self, prog_name):
-        parser = super(ListOfPackages, self).get_parser(prog_name)
-
-        bootstrap_group = parser.add_mutually_exclusive_group(required=False)
-        bootstrap_group.add_argument(
-            "-b", "--bootstrap",
-            nargs='+',
-            dest='bootstrap',
-            metavar='PACKAGE [OP VERSION]',
-            help="Space separated list of package relations, "
-                 "to resolve the list of mandatory packages."
-        )
-        bootstrap_group.add_argument(
-            "-B", "--bootstrap-file",
-            type=read_lines_from_file,
-            dest='bootstrap',
-            metavar='FILENAME',
-            help="Path to the file with list of package relations, "
-                 "to resolve the list of mandatory packages."
-        )
-
-        requires_group = parser.add_mutually_exclusive_group(required=False)
-        requires_group.add_argument(
-            '-r', '--requires-url',
-            nargs="+",
-            dest='requires',
-            metavar='URL',
-            help="Space separated list of repository`s URL to calculate list "
-                 "of dependencies, that will be used to filter packages")
-
-        requires_group.add_argument(
-            '-R', '--requires-file',
-            type=read_lines_from_file,
-            dest='requires',
-            metavar='FILENAME',
-            help="The path to the file with list of repository`s URL "
-                 "to calculate list of dependencies, "
-                 "that will be used to filter packages")
-        return parser
-
     def take_repo_action(self, api, parsed_args):
         return api.get_packages(
-            parsed_args.origins,
-            parsed_args.requires,
-            parsed_args.bootstrap,
+            parsed_args.repositories,
+            parsed_args.requirements,
+            parsed_args.include_mandatory
         )
 
 

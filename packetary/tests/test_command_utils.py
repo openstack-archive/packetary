@@ -28,17 +28,27 @@ class Dummy(object):
 
 class TestCommandUtils(base.TestCase):
     @mock.patch("packetary.cli.commands.utils.open")
-    def test_read_lines_from_file(self, open_mock):
-        open_mock().__enter__.return_value = [
-            "line1\n",
-            " # comment\n",
-            "line2 \n"
-        ]
-
+    def test_read_from_json_file(self, open_mock):
+        mock.mock_open(open_mock, read_data='{"key": "value"}')
         self.assertEqual(
-            ["line1", "line2"],
-            utils.read_lines_from_file("test.txt")
+            {"key": "value"},
+            utils.read_from_file("test.json")
         )
+
+    @mock.patch("packetary.cli.commands.utils.open")
+    def test_read_from_yaml_file(self, open_mock):
+        mock.mock_open(open_mock, read_data='key: value')
+        self.assertEqual(
+            {"key": "value"},
+            utils.read_from_file("test.YAML")
+        )
+
+    def test_read_from_from_file_if_none(self):
+        self.assertIsNone(utils.read_from_file(None))
+
+    def test_read_from_from_file_fails_if_unknown_extension(self):
+        with self.assertRaisesRegexp(ValueError, "txt"):
+            utils.read_from_file("test.txt")
 
     def test_get_object_attrs(self):
         obj = Dummy()
