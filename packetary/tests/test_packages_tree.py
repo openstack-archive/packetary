@@ -16,120 +16,82 @@
 #    with this program; if not, write to the Free Software Foundation, Inc.,
 #    51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 
-import warnings
-
-from packetary.objects import Index
 from packetary.objects import PackagesTree
+from packetary.objects import VersionRange
 from packetary.tests import base
 from packetary.tests.stubs import generator
 
 
 class TestPackagesTree(base.TestCase):
-    def setUp(self):
-        super(TestPackagesTree, self).setUp()
+    def test_add(self):
+        tree = PackagesTree()
+        pkg = generator.gen_package(version=1, mandatory=True)
+        tree.add(pkg)
+        self.assertIs(pkg, tree.find(pkg.name, VersionRange('=', pkg.version)))
+        self.assertIs(
+            pkg.obsoletes[0],
+            tree.obsoletes[pkg.obsoletes[0].name][(pkg.name, pkg.version)]
+        )
+        self.assertIs(
+            pkg.provides[0],
+            tree.provides[pkg.provides[0].name][(pkg.name, pkg.version)]
+        )
+        tree.add(generator.gen_package(version=1, mandatory=False))
+        self.assertItemsEqual([pkg], tree.mandatory_packages)
 
-    def test_get_unresolved_dependencies(self):
-        ptree = PackagesTree()
-        ptree.add(generator.gen_package(
-            1, requires=[generator.gen_relation("unresolved")]))
-        ptree.add(generator.gen_package(2, requires=None))
-        ptree.add(generator.gen_package(
-            3, requires=[generator.gen_relation("package1")]
-        ))
-        ptree.add(generator.gen_package(
-            4,
-            requires=[generator.gen_relation("loop")],
-            obsoletes=[generator.gen_relation("loop", ["le", 1])]
-        ))
+    def test_find_package(self):
+        tree = PackagesTree()
+        p1 = generator.gen_package(idx=1, version=1)
+        p2 = generator.gen_package(idx=1, version=2)
+        tree.add(p1)
+        tree.add(p2)
 
-        unresolved = ptree.get_unresolved_dependencies()
-        self.assertItemsEqual(
-            ["loop", "unresolved"],
-            (x.name for x in unresolved)
+        self.assertIs(p1, tree.find(p1.name, VersionRange("<", p2.version)))
+        self.assertIs(p2, tree.find(p1.name, VersionRange(">=", p1.version)))
+        self.assertIsNone(tree.find(p1.name, VersionRange(">", p2.version)))
+
+    def test_find_obsolete(self):
+        tree = PackagesTree()
+        p1 = generator.gen_package(
+            version=1, obsoletes=[generator.gen_relation('obsolete', ('<', 2))]
+        )
+        p2 = generator.gen_package(
+            version=2, obsoletes=[generator.gen_relation('obsolete', ('<', 2))]
+        )
+        tree.add(p1)
+        tree.add(p2)
+
+        self.assertEqual(
+            [p1, p2], tree.find_all("obsolete", VersionRange("<=", 2))
+        )
+        self.assertIsNone(
+            tree.find("obsolete", VersionRange(">", 2))
         )
 
-    def test_get_unresolved_dependencies_with_main(self):
-        ptree = PackagesTree()
-        ptree.add(generator.gen_package(
+    def test_find_provides(self):
+        tree = PackagesTree()
+        p1 = generator.gen_package(
+            version=1, obsoletes=[generator.gen_relation('provide', ('<', 2))]
+        )
+        tree.add(p1)
+
+        self.assertIs(
+            p1, tree.find("provide", VersionRange("<=", 2))
+        )
+        self.assertIsNone(
+            tree.find("provide", VersionRange(">", 2))
+        )
+
+    def test_get_unresolved_dependencies(self):
+        tree = PackagesTree()
+        tree.add(generator.gen_package(
             1, requires=[generator.gen_relation("unresolved")]))
-        ptree.add(generator.gen_package(2, requires=None))
-        ptree.add(generator.gen_package(
+        tree.add(generator.gen_package(2, requires=None))
+        tree.add(generator.gen_package(
             3, requires=[generator.gen_relation("package1")]
         ))
-        ptree.add(generator.gen_package(
-            4,
-            requires=[generator.gen_relation("package5")]
-        ))
-        main = Index()
-        main.add(generator.gen_package(5, requires=[
-            generator.gen_relation("package6")
-        ]))
-
-        unresolved = ptree.get_unresolved_dependencies(main)
+        unresolved = tree.get_unresolved_dependencies()
         self.assertItemsEqual(
             ["unresolved"],
             (x.name for x in unresolved)
         )
-
-    def test_get_minimal_subset_with_master(self):
-        ptree = PackagesTree()
-        ptree.add(generator.gen_package(1, requires=None))
-        ptree.add(generator.gen_package(2, requires=None))
-        ptree.add(generator.gen_package(3, requires=None))
-        ptree.add(generator.gen_package(
-            4, requires=[generator.gen_relation("package1")]
-        ))
-
-        master = Index()
-        master.add(generator.gen_package(1, requires=None))
-        master.add(generator.gen_package(
-            5,
-            requires=[generator.gen_relation(
-                "package10",
-                alternative=generator.gen_relation("package4")
-            )]
-        ))
-
-        unresolved = set([generator.gen_relation("package3")])
-        resolved = ptree.get_minimal_subset(master, unresolved)
-        self.assertItemsEqual(
-            ["package3", "package4"],
-            (x.name for x in resolved)
-        )
-
-    def test_get_minimal_subset_without_master(self):
-        ptree = PackagesTree()
-        ptree.add(generator.gen_package(1, requires=None))
-        ptree.add(generator.gen_package(2, requires=None))
-        ptree.add(generator.gen_package(
-            3, requires=[generator.gen_relation("package1")]
-        ))
-        unresolved = set([generator.gen_relation("package3")])
-        resolved = ptree.get_minimal_subset(None, unresolved)
-        self.assertItemsEqual(
-            ["package3", "package1"],
-            (x.name for x in resolved)
-        )
-
-    def test_mandatory_packages_always_included(self):
-        ptree = PackagesTree()
-        ptree.add(generator.gen_package(1, requires=None, mandatory=True))
-        ptree.add(generator.gen_package(2, requires=None))
-        ptree.add(generator.gen_package(3, requires=None))
-        unresolved = set([generator.gen_relation("package3")])
-        resolved = ptree.get_minimal_subset(None, unresolved)
-        self.assertItemsEqual(
-            ["package3", "package1"],
-            (x.name for x in resolved)
-        )
-
-    def test_warning_if_unresolved(self):
-        ptree = PackagesTree()
-        ptree.add(generator.gen_package(
-            1, requires=None))
-
-        with warnings.catch_warnings(record=True) as log:
-            ptree.get_minimal_subset(
-                None, [generator.gen_relation("package2")]
-            )
-        self.assertIn("package2", str(log[0]))

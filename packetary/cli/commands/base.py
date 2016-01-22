@@ -22,7 +22,7 @@ from cliff import command
 import six
 
 from packetary.cli.commands.utils import make_display_attr_getter
-from packetary.cli.commands.utils import read_lines_from_file
+from packetary.cli.commands.utils import read_from_file
 from packetary import RepositoryApi
 
 
@@ -56,21 +56,15 @@ class BaseRepoCommand(command.Command):
             default="x86_64",
             help='The target architecture.')
 
-        origin_gr = parser.add_mutually_exclusive_group(required=True)
-        origin_gr.add_argument(
-            '-o', '--origin-url',
-            nargs="+",
-            dest='origins',
-            type=six.text_type,
-            metavar='URL',
-            help='Space separated list of URLs of origin repositories.')
-
-        origin_gr.add_argument(
-            '-O', '--origin-file',
-            type=read_lines_from_file,
-            dest='origins',
+        parser.add_argument(
+            '-r', '--repositories',
+            dest='repositories',
+            type=read_from_file,
             metavar='FILENAME',
-            help='The path to file with URLs of origin repositories.')
+            required=True,
+            help="The path to file with list of repositories."
+                 "See documentation about format."
+        )
 
         return parser
 
@@ -96,6 +90,30 @@ class BaseRepoCommand(command.Command):
         :param parsed_args: the command-line arguments
         :return: the action result
         """
+
+
+class PackagesMixin(object):
+    """Added arguments to declare list of packages."""
+
+    def get_parser(self, prog_name):
+        parser = super(PackagesMixin, self).get_parser(prog_name)
+        parser.add_argument(
+            "--skip-mandatory",
+            dest='include_mandatory',
+            action='store_false',
+            default=True,
+            help="Do not copy mandatory packages."
+        )
+
+        parser.add_argument(
+            "-p", "--packages",
+            dest='requirements',
+            type=read_from_file,
+            metavar='FILENAME',
+            help="The path to file with list of packages."
+                 "See documentation about format."
+        )
+        return parser
 
 
 class BaseProduceOutputCommand(BaseRepoCommand):

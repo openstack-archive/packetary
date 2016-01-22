@@ -16,6 +16,7 @@
 #    with this program; if not, write to the Free Software Foundation, Inc.,
 #    51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 
+from collections import defaultdict
 import logging
 
 import six
@@ -23,8 +24,8 @@ import six
 from packetary.controllers import RepositoryController
 from packetary.library.connections import ConnectionsManager
 from packetary.library.executor import AsynchronousSection
-from packetary.objects import Index
 from packetary.objects import PackageRelation
+from packetary.objects import PackagesForest
 from packetary.objects import PackagesTree
 from packetary.objects.statistics import CopyStatistics
 
@@ -111,120 +112,120 @@ class RepositoryApi(object):
         context = config if isinstance(config, Context) else Context(config)
         return cls(RepositoryController.load(context, repotype, repoarch))
 
-    def get_packages(self, origin, debs=None, requirements=None):
+    def get_packages(self, repos_data, requirements_data=None,
+                     include_mandatory=False):
         """Gets the list of packages from repository(es).
 
-        :param origin: The list of repository`s URLs
-        :param debs: the list of repository`s URL to calculate list of
-                     dependencies, that will be used to filter packages.
-        :param requirements: the list of package relations,
-                        to resolve the list of mandatory packages.
+        :param repos_data: The list of repository descriptions
+        :param requirements_data: The list of package`s requirements
+                                  that should be included
+        :param include_mandatory: if True, all mandatory packages will be
         :return: the set of packages
         """
-        repositories = self._get_repositories(origin)
-        return self._get_packages(repositories, debs, requirements)
+        repos = self._load_repositories(repos_data)
+        if requirements_data is not None:
+            return self._get_packages_by_requirements(
+                repos,
+                self._parse_requirements(requirements_data),
+                include_mandatory
+            )
 
-    def clone_repositories(self, origin, destination, debs=None,
-                           requirements=None, keep_existing=True,
-                           include_source=False, include_locale=False):
+        packages = set()
+        self._load_packages(repos, packages.add)
+        return packages
+
+    def clone_repositories(self, repos_data, requirements_data, destination,
+                           include_source=False, include_locale=False,
+                           include_mandatory=False):
         """Creates the clones of specified repositories in local folder.
 
-        :param origin: The list of repository`s URLs
+        :param repos_data: The list of repository descriptions
+        :param requirements_data: The list of package`s requirements
+                                  that should be included
         :param destination: the destination folder path
-        :param debs: the list of repository`s URL to calculate list of
-                     dependencies, that will be used to filter packages.
-        :param requirements: the list of package relations,
-                        to resolve the list of mandatory packages.
-        :param keep_existing: If False - local packages that does not exist
-                              in original repo will be removed.
         :param include_source: if True, the source packages
                                will be copied as well.
-        :param include_locale: if True, the locales
-                               will be copied as well.
+        :param include_locale: if True, the locales will be copied as well.
+        :param include_mandatory: if True, all mandatory packages will be
+                                  included
         :return: count of copied and total packages.
         """
-        repositories = self._get_repositories(origin)
-        packages = self._get_packages(repositories, debs, requirements)
-        mirrors = self.controller.clone_repositories(
-            repositories, destination, include_source, include_locale
-        )
 
-        package_groups = dict((x, set()) for x in repositories)
-        for pkg in packages:
+        repos = self._load_repositories(repos_data)
+        if requirements_data is not None:
+            all_packages = self._get_packages_by_requirements(
+                repos,
+                self._parse_requirements(requirements_data),
+                include_mandatory
+            )
+        else:
+            all_packages = set()
+            self._load_packages(repos, all_packages.add)
+
+        package_groups = defaultdict(set)
+        for pkg in all_packages:
             package_groups[pkg.repository].add(pkg)
 
         stat = CopyStatistics()
+        mirrors = defaultdict(set)
+        # group packages by mirror
         for repo, packages in six.iteritems(package_groups):
-            mirror = mirrors[repo]
-            logger.info("copy packages from - %s", repo)
-            self.controller.copy_packages(
-                mirror, packages, keep_existing, stat.on_package_copied
+            mirror = self.controller.fork_repository(
+                repo, destination, include_source, include_locale
+            )
+            mirrors[mirror].update(packages)
+
+        # add new packages to mirrors
+        for mirror, packages in six.iteritems(mirrors):
+            self.controller.assign_packages(
+                mirror, packages, stat.on_package_copied
             )
         return stat
 
-    def get_unresolved_dependencies(self, origin, main=None):
+    def get_unresolved_dependencies(self, repos_data):
         """Gets list of unresolved dependencies for repository(es).
 
-        :param origin: The list of repository`s URLs
-        :param main: The main repository(es) URL
+        :param repos_data: The list of repository descriptions
         :return: list of unresolved dependencies
         """
         packages = PackagesTree()
-        self.controller.load_packages(
-            self._get_repositories(origin),
-            packages.add
-        )
+        self._load_packages(self._load_repositories(repos_data), packages.add)
+        return packages.get_unresolved_dependencies()
 
-        if main is not None:
-            base = Index()
-            self.controller.load_packages(
-                self._get_repositories(main),
-                base.add
-            )
-        else:
-            base = None
+    def _load_packages(self, repos, consumer):
+        for repo in repos:
+            self.controller.load_packages(repo, consumer)
 
-        return packages.get_unresolved_dependencies(base)
+    def _get_packages_by_requirements(self, repos, reqs, include_mandatory):
+        forest = PackagesForest()
+        for repo in repos:
+            self.controller.load_packages(repo, forest.add_tree().add)
 
-    def _get_repositories(self, urls):
-        """Gets the set of repositories by url."""
-        repositories = set()
-        self.controller.load_repositories(urls, repositories.add)
-        return repositories
+        return forest.get_packages(reqs, include_mandatory)
 
-    def _get_packages(self, repositories, master, requirements):
-        """Gets the list of packages according to master and requirements."""
-        if master is None and requirements is None:
-            packages = set()
-            self.controller.load_packages(repositories, packages.add)
-            return packages
+    def _load_repositories(self, repos_data):
+        self._validate_repos_data(repos_data)
+        return self.controller.load_repositories(repos_data)
 
-        packages = PackagesTree()
-        self.controller.load_packages(repositories, packages.add)
-        if master is not None:
-            main_index = Index()
-            self.controller.load_packages(
-                self._get_repositories(master),
-                main_index.add
-            )
-        else:
-            main_index = None
+    def _parse_requirements(self, requirements_data):
+        self._validate_requirements_data(requirements_data)
+        result = []
+        for r in requirements_data:
+            self._validate_requirements_data(r)
+            versions = r.get('versions', None)
+            if versions is None:
+                result.append(PackageRelation.from_args((r['name'],)))
+            else:
+                for version in versions:
+                    result.append(PackageRelation.from_args(
+                        ([r['name']] + version.split(None, 1))
+                    ))
+        return result
 
-        return packages.get_minimal_subset(
-            main_index,
-            self._parse_requirements(requirements)
-        )
+    def _validate_repos_data(self, repos_data):
+        # TODO(bgaifullin) implement me
+        pass
 
-    @staticmethod
-    def _parse_requirements(requirements):
-        """Gets the list of relations from requirements.
-
-        :param requirements: the list of requirement in next format:
-                             'name [cmp version]|[alt [cmp version]]'
-        """
-        if requirements is not None:
-            return set(
-                PackageRelation.from_args(
-                    *(x.split() for x in r.split("|"))) for r in requirements
-            )
-        return set()
+    def _validate_requirements_data(self, requirements_data):
+        # TODO(bgaifullin) implement me
+        pass

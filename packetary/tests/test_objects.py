@@ -32,7 +32,7 @@ class TestObjectBase(base.TestCase):
     def check_copy(self, origin):
         clone = copy.copy(origin)
         self.assertIsNot(origin, clone)
-        self.assertEqual(origin, clone)
+        self.assertEqual(origin.name, clone.name)
         origin_name = origin.name
         origin.name += "1"
         self.assertEqual(
@@ -91,25 +91,30 @@ class TestPackageObject(TestObjectBase):
         )
 
 
-class TestRepositoryObject(base.TestCase):
+class TestRepositoryObject(TestObjectBase):
     def test_copy(self):
-        origin = generator.gen_repository()
-        clone = copy.copy(origin)
-        self.assertEqual(clone.name, origin.name)
-        self.assertEqual(clone.architecture, origin.architecture)
+        self.check_copy(generator.gen_repository())
+
+    def test_hashable(self):
+        self.check_hashable(
+            generator.gen_repository(name="test1", url="file:///repo"),
+            generator.gen_repository(name="test1", url="file:///repo",
+                                     section=("a", "b")),
+        )
 
     def test_str(self):
         self.assertEqual(
-            "a.b",
-            str(generator.gen_repository(name=("a", "b")))
-        )
-        self.assertEqual(
             "/a/b/",
-            str(generator.gen_repository(name="", url="/a/b/"))
+            str(generator.gen_repository(name="a", url="/a/b/"))
         )
         self.assertEqual(
-            "a",
-            str(generator.gen_repository(name="a", url="/a/b/"))
+            "/a/b/ c",
+            str(generator.gen_repository(name="a", url="/a/b/", section="c"))
+        )
+        self.assertEqual(
+            "/a/b/ c d",
+            str(generator.gen_repository(
+                name="a", url="/a/b/", section=("c", "d")))
         )
 
 
@@ -124,15 +129,15 @@ class TestRelationObject(TestObjectBase):
     def test_hashable(self):
         self.check_hashable(
             generator.gen_relation(name="test1"),
-            generator.gen_relation(name="test1", version=["le", 1])
+            generator.gen_relation(name="test1", version=["<=", 1])
         )
 
     def test_from_args(self):
         r = PackageRelation.from_args(
-            ("test", "le", 2), ("test2",), ("test3",)
+            ("test", "<=", 2), ("test2",), ("test3",)
         )
         self.assertEqual("test", r.name)
-        self.assertEqual("le", r.version.op)
+        self.assertEqual("<=", r.version.op)
         self.assertEqual(2, r.version.edge)
         self.assertEqual("test2", r.alternative.name)
         self.assertEqual(VersionRange(), r.alternative.version)
@@ -142,7 +147,7 @@ class TestRelationObject(TestObjectBase):
 
     def test_iter(self):
         it = iter(PackageRelation.from_args(
-            ("test", "le", 2), ("test2", "ge", 3))
+            ("test", "<=", 2), ("test2", ">=", 3))
         )
         self.assertEqual("test", next(it).name)
         self.assertEqual("test2", next(it).name)
@@ -153,15 +158,15 @@ class TestRelationObject(TestObjectBase):
 class TestVersionRange(TestObjectBase):
     def test_equal(self):
         self.check_equal(
-            VersionRange("eq", 1),
-            VersionRange("eq", 1),
-            VersionRange("le", 1)
+            VersionRange("=", 1),
+            VersionRange("=", 1),
+            VersionRange("<=", 1)
         )
 
     def test_hashable(self):
         self.check_hashable(
-            VersionRange(op="le"),
-            VersionRange(op="le", edge=3)
+            VersionRange(op="<="),
+            VersionRange(op="<=", edge=3)
         )
 
     def __check_intersection(self, assertion, cases):
@@ -177,28 +182,39 @@ class TestVersionRange(TestObjectBase):
 
     def test_have_intersection(self):
         cases = [
-            (("lt", 2), ("gt", 1)),
-            (("lt", 3), ("lt", 4)),
-            (("gt", 3), ("gt", 4)),
-            (("eq", 1), ("eq", 1)),
-            (("ge", 1), ("le", 1)),
-            (("eq", 1), ("lt", 2)),
-            ((None, None), ("le", 10)),
+            (("=", 2), ("=", 2)),
+            (("=", 2), ("<", 3)),
+            (("=", 2), (">", 1)),
+            (("<", 2), (">", 1)),
+            (("<", 2), ("<", 3)),
+            (("<", 2), ("<", 2)),
+            (("<", 2), ("<=", 2)),
+            ((">", 2), (">", 1)),
+            ((">", 2), ("<", 3)),
+            ((">", 2), (">=", 2)),
+            ((">", 2), (">", 2)),
+            ((">=", 2), ("<=", 2)),
+            ((None, None), ("=", 2)),
         ]
         self.__check_intersection(self.assertTrue, cases)
 
     def test_does_not_have_intersection(self):
         cases = [
-            (("lt", 2), ("gt", 2)),
-            (("ge", 2), ("lt", 2)),
-            (("gt", 2), ("le", 2)),
-            (("gt", 1), ("lt", 1)),
+            (("=", 2), ("=", 1)),
+            (("=", 2), ("<", 2)),
+            (("=", 2), (">", 2)),
+            (("=", 2), (">", 3)),
+            (("=", 2), ("<", 1)),
+            (("<", 2), (">=", 2)),
+            (("<", 2), (">", 3)),
+            ((">", 2), ("<=", 2)),
+            ((">", 2), ("<", 1)),
         ]
         self.__check_intersection(self.assertFalse, cases)
 
     def test_intersection_is_typesafe(self):
         with self.assertRaises(TypeError):
-            VersionRange("eq", 1).has_intersection(("eq", 1))
+            VersionRange("=", 1).has_intersection(("=", 1))
 
 
 class TestPackageVersion(base.TestCase):
