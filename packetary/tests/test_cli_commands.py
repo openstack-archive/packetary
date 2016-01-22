@@ -24,25 +24,19 @@ import subprocess
 # that was removed in 3.5
 subprocess.mswindows = False
 
+from packetary.api import RepositoryApi
 from packetary.cli.commands import clone
 from packetary.cli.commands import packages
 from packetary.cli.commands import unresolved
+from packetary.objects.statistics import CopyStatistics
 from packetary.tests import base
 from packetary.tests.stubs.generator import gen_package
 from packetary.tests.stubs.generator import gen_relation
-from packetary.tests.stubs.generator import gen_repository
-from packetary.tests.stubs.helpers import CallbacksAdapter
 
 
-@mock.patch.multiple(
-    "packetary.api",
-    RepositoryController=mock.DEFAULT,
-    ConnectionsManager=mock.DEFAULT,
-    AsynchronousSection=mock.MagicMock()
-)
-@mock.patch(
-    "packetary.cli.commands.base.BaseRepoCommand.stdout"
-)
+@mock.patch("packetary.cli.commands.base.BaseRepoCommand.stdout")
+@mock.patch("packetary.cli.commands.base.read_from_file")
+@mock.patch("packetary.cli.commands.base.RepositoryApi")
 class TestCliCommands(base.TestCase):
     common_argv = [
         "--ignore-errors-num=3",
@@ -53,23 +47,24 @@ class TestCliCommands(base.TestCase):
     ]
 
     clone_argv = [
-        "-o", "http://localhost/origin",
-        "-d", ".",
-        "-r", "http://localhost/requires",
-        "-b", "test-package",
+        "-r", "repositories.yaml",
+        "-p", "packages.yaml",
+        "-d", "/root",
         "-t", "deb",
         "-a", "x86_64",
         "--clean",
+        "--skip-mandatory"
     ]
 
     packages_argv = [
-        "-o", "http://localhost/origin",
+        "-r", "repositories.yaml",
         "-t", "deb",
-        "-a", "x86_64"
+        "-a", "x86_64",
+        "-c", "name", "filename"
     ]
 
     unresolved_argv = [
-        "-o", "http://localhost/origin",
+        "-r", "repositories.yaml",
         "-t", "deb",
         "-a", "x86_64"
     ]
@@ -77,76 +72,76 @@ class TestCliCommands(base.TestCase):
     def start_cmd(self, cmd, argv):
         cmd.debug(argv + self.common_argv)
 
-    def check_context(self, context, ConnectionsManager):
-        self.assertEqual(3, context._ignore_errors_num)
-        self.assertEqual(8, context._threads_num)
-        self.assertIs(context._connection, ConnectionsManager.return_value)
-        ConnectionsManager.assert_called_once_with(
-            proxy="http://proxy",
-            secure_proxy="https://proxy",
-            retries_num=10
-        )
+    def check_common_config(self, config):
+        self.assertEqual("http://proxy", config.http_proxy)
+        self.assertEqual("https://proxy", config.https_proxy)
+        self.assertEqual(3, config.ignore_errors_num)
+        self.assertEqual(8, config.threads_num)
+        self.assertEqual(10, config.retries_num)
 
-    def test_clone_cmd(self, stdout, RepositoryController, **kwargs):
-        ctrl = RepositoryController.load()
-        ctrl.copy_packages = CallbacksAdapter()
-        ctrl.load_repositories = CallbacksAdapter()
-        ctrl.load_packages = CallbacksAdapter()
-        ctrl.copy_packages.return_value = [1, 0]
-        repo = gen_repository()
-        ctrl.load_repositories.side_effect = [repo, gen_repository()]
-        ctrl.load_packages.side_effect = [
-            gen_package(repository=repo),
-            gen_package()
+    def test_clone_cmd(self, api_mock, read_file_mock, stdout_mock):
+        read_file_mock.side_effect = [
+            [{"name": "repo"}],
+            [{"name": "package"}],
         ]
+        api_instance = mock.MagicMock(spec=RepositoryApi)
+        api_mock.create.return_value = api_instance
+        api_instance.clone_repositories.return_value = CopyStatistics()
         self.start_cmd(clone, self.clone_argv)
-        RepositoryController.load.assert_called_with(
+        api_mock.create.assert_called_once_with(
             mock.ANY, "deb", "x86_64"
         )
-        self.check_context(
-            RepositoryController.load.call_args[0][0], **kwargs
+        self.check_common_config(api_mock.create.call_args[0][0])
+        read_file_mock.assert_any_call("repositories.yaml")
+        read_file_mock.assert_any_call("packages.yaml")
+        api_instance.clone_repositories.assert_called_once_with(
+            [{"name": "repo"}], [{"name": "package"}], "/root",
+            False, False, False, False
         )
-        stdout.write.assert_called_once_with(
-            "Packages copied: 1/2.\n"
+        stdout_mock.write.assert_called_once_with(
+            "Packages copied: 0/0.\n"
         )
 
-    def test_get_packages_cmd(self, stdout, RepositoryController, **kwargs):
-        ctrl = RepositoryController.load()
-        ctrl.load_packages = CallbacksAdapter()
-        ctrl.load_packages.return_value = gen_package(
-            name="test1",
-            filesize=1,
-            requires=None,
-            obsoletes=None,
-            provides=None
-        )
+    def test_get_packages_cmd(self, api_mock, read_file_mock, stdout_mock):
+        read_file_mock.return_value = [{"name": "repo"}]
+        api_instance = mock.MagicMock(spec=RepositoryApi)
+        api_mock.create.return_value = api_instance
+        api_instance.get_packages.return_value = [
+            gen_package(name="test1", filesize=1, requires=None,
+                        obsoletes=None, provides=None)
+        ]
+
         self.start_cmd(packages, self.packages_argv)
-        RepositoryController.load.assert_called_with(
+        read_file_mock.assert_called_with("repositories.yaml")
+        api_mock.create.assert_called_once_with(
             mock.ANY, "deb", "x86_64"
         )
-        self.check_context(
-            RepositoryController.load.call_args[0][0], **kwargs
+        self.check_common_config(api_mock.create.call_args[0][0])
+        api_instance.get_packages.assert_called_once_with(
+            [{"name": "repo"}], None, True
         )
         self.assertIn(
-            "test1; test; 1; test1.pkg; 1;",
-            stdout.write.call_args_list[3][0][0]
+            "test1; test1.pkg",
+            stdout_mock.write.call_args_list[3][0][0]
         )
 
-    def test_get_unresolved_cmd(self, stdout, RepositoryController, **kwargs):
-        ctrl = RepositoryController.load()
-        ctrl.load_packages = CallbacksAdapter()
-        ctrl.load_packages.return_value = gen_package(
-            name="test1",
-            requires=[gen_relation("test2")]
-        )
+    def test_get_unresolved_cmd(self, api_mock, read_file_mock, stdout_mock):
+        read_file_mock.return_value = [{"name": "repo"}]
+        api_instance = mock.MagicMock(spec=RepositoryApi)
+        api_mock.create.return_value = api_instance
+        api_instance.get_unresolved_dependencies.return_value = [
+            gen_relation(name="test")
+        ]
+
         self.start_cmd(unresolved, self.unresolved_argv)
-        RepositoryController.load.assert_called_with(
+        api_mock.create.assert_called_once_with(
             mock.ANY, "deb", "x86_64"
         )
-        self.check_context(
-            RepositoryController.load.call_args[0][0], **kwargs
+        self.check_common_config(api_mock.create.call_args[0][0])
+        api_instance.get_unresolved_dependencies.assert_called_once_with(
+            [{"name": "repo"}]
         )
         self.assertIn(
-            "test2; any; -",
-            stdout.write.call_args_list[3][0][0]
+            "test; any; -",
+            stdout_mock.write.call_args_list[3][0][0]
         )

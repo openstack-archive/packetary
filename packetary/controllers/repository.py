@@ -22,6 +22,7 @@ import os
 import six
 import stevedore
 
+from packetary.library import utils
 
 logger = logging.getLogger(__package__)
 
@@ -58,114 +59,86 @@ class RepositoryController(object):
             )
         return cls(context, driver, repoarch)
 
-    def load_repositories(self, urls, consumer):
+    def load_repositories(self, repositories_data):
         """Loads the repository objects from url.
 
-        :param urls: the list of repository urls.
-        :param consumer: the callback to consume objects
+        :param repositories_data: the list of repository`s descriptions
+        :return: the list of repositories sorted according to priority
         """
-        if isinstance(urls, six.string_types):
-            urls = [urls]
 
         connection = self.context.connection
-        for parsed_url in self.driver.parse_urls(urls):
+        repositories_data.sort(key=self.driver.priority_sort)
+        repos = []
+        for repo_data in repositories_data:
             self.driver.get_repository(
-                connection, parsed_url, self.arch, consumer
+                connection, repo_data, self.arch, repos.append
             )
+        return repos
 
-    def load_packages(self, repositories, consumer):
+    def load_packages(self, repository, consumer):
         """Loads packages from repository.
 
-        :param repositories: the repository object
+        :param repository: the repository object
         :param consumer: the callback to consume objects
         """
         connection = self.context.connection
-        for r in repositories:
-            self.driver.get_packages(connection, r, consumer)
+        self.driver.get_packages(connection, repository, consumer)
 
-    def assign_packages(self, repository, packages, keep_existing=True):
+    def fork_repository(self, repository, destination, source, locale):
+        """Creates copy of repositories.
+
+        :param repository: the origin repository
+        :param destination: the target folder
+        :param source: If True, the source packages will be copied too.
+        :param locale: If True, the localisation will be copied too.
+        :return: the mapping origin to cloned repository.
+        """
+        new_path = os.path.join(
+            destination,
+            repository.path or utils.get_path_from_url(repository.url, False)
+        )
+        return self.driver.fork_repository(
+            self.context.connection, repository, new_path, source, locale
+        )
+
+    def assign_packages(self, repository, packages, observer=None):
         """Assigns new packages to the repository.
 
          It replaces the current repository`s packages.
 
         :param repository: the target repository
         :param packages: the set of new packages
-        :param keep_existing:
-            if True, all existing packages will be kept as is.
-            if False, all existing packages, that are not included
-            to new packages will be removed.
+        :param observer: the package copying process observer
         """
-
         if not isinstance(packages, set):
             packages = set(packages)
         else:
             packages = packages.copy()
 
-        if keep_existing:
-            consume_exist = packages.add
-        else:
-            def consume_exist(package):
-                if package not in packages:
-                    filepath = os.path.join(
-                        package.repository.url, package.filename
-                    )
-                    logger.info("remove package - %s.", filepath)
-                    os.remove(filepath)
-
-        self.driver.get_packages(
-            self.context.connection, repository, consume_exist
+        self._copy_packages(repository, packages, observer)
+        self.driver.add_packages(
+            self.context.connection, repository, packages
         )
-        self.driver.rebuild_repository(repository, packages)
 
-    def copy_packages(self, repository, packages, keep_existing, observer):
-        """Copies packages to repository.
-
-        :param repository: the target repository
-        :param packages: the set of packages
-        :param keep_existing: see assign_packages for more details
-        :param observer: the package copying process observer
-        """
+    def _copy_packages(self, target, packages, observer):
         with self.context.async_section() as section:
             for package in packages:
                 section.execute(
-                    self._copy_package, repository, package, observer
+                    self._copy_package, target, package, observer
                 )
-        self.assign_packages(repository, packages, keep_existing)
-
-    def clone_repositories(self, repositories, destination,
-                           source=False, locale=False):
-        """Creates copy of repositories.
-
-        :param repositories: the origin repositories
-        :param destination: the target folder
-        :param source: If True, the source packages will be copied too.
-        :param locale: If True, the localisation will be copied too.
-        :return: the mapping origin to cloned repository.
-        """
-        mirros = dict()
-        destination = os.path.abspath(destination)
-        with self.context.async_section(0) as section:
-            for r in repositories:
-                section.execute(
-                    self._fork_repository,
-                    r, destination, source, locale, mirros
-                )
-        return mirros
-
-    def _fork_repository(self, r, destination, source, locale, mirrors):
-        """Creates clone of repository and stores it in mirrors."""
-        new_repository = self.driver.fork_repository(
-            self.context.connection, r, destination, source, locale
-        )
-        mirrors[r] = new_repository
 
     def _copy_package(self, target, package, observer):
-        """Synchronises remote file to local fs."""
-        dst_path = os.path.join(target.url, package.filename)
-        src_path = urljoin(package.repository.url, package.filename)
-        bytes_copied = self.context.connection.retrieve(
-            src_path, dst_path, size=package.filesize
-        )
-        if package.filesize < 0:
-            package.filesize = bytes_copied
-        observer(bytes_copied)
+        bytes_copied = 0
+        if target.url != package.repository.url:
+            dst_path = os.path.join(
+                utils.get_path_from_url(target.url), package.filename
+            )
+            src_path = urljoin(package.repository.url, package.filename)
+            bytes_copied = self.context.connection.retrieve(
+                src_path, dst_path, size=package.filesize
+            )
+            if package.filesize < 0:
+                package.filesize = bytes_copied
+
+        if observer:
+            observer(bytes_copied)

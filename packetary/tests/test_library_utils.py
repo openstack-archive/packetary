@@ -95,6 +95,29 @@ class TestLibraryUtils(base.TestCase):
         )
 
     @mock.patch("packetary.library.utils.os")
+    def test_normalize_repository_url(self, os_mock):
+        def abs_patch_mock(p):
+            if p.startswith("/"):
+                return p
+            return "/root/" + p[2:]
+
+        os_mock.sep = "/"
+        os_mock.path.abspath.side_effect = abs_patch_mock
+
+        cases = [
+            ("file:///repo/", "/repo"),
+            ("file:///root/repo/", "./repo"),
+            ("http://localhost/repo/", "http://localhost/repo"),
+            ("http://localhost/repo/", "http://localhost/repo/"),
+        ]
+
+        for expected, url in cases:
+            self.assertEqual(
+                expected, utils.normalize_repository_url(url),
+                "URL: {0}".format(url)
+            )
+
+    @mock.patch("packetary.library.utils.os")
     def test_ensure_dir_exist(self, os):
         os.makedirs.side_effect = [
             True,

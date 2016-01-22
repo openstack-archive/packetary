@@ -16,119 +16,98 @@
 #    with this program; if not, write to the Free Software Foundation, Inc.,
 #    51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 
-import warnings
+from collections import defaultdict
+
+import six
 
 from packetary.objects.index import Index
+from packetary.objects.package_relation import VersionRange
 
 
-class UnresolvedWarning(UserWarning):
-    """Warning about unresolved depends."""
-    pass
-
-
-class PackagesTree(Index):
+class PackagesTree(object):
     """Helper class to deal with dependency graph."""
 
     def __init__(self):
         super(PackagesTree, self).__init__()
         self.mandatory_packages = []
+        self.packages = Index()
+        self.provides = defaultdict(dict)
+        self.obsoletes = defaultdict(dict)
 
     def add(self, package):
-        super(PackagesTree, self).add(package)
         # store all mandatory packages in separated list for quick access
         if package.mandatory:
             self.mandatory_packages.append(package)
 
-    def get_unresolved_dependencies(self, base=None):
+        self.packages.add(package)
+        key = package.name, package.version
+
+        for obsolete in package.obsoletes:
+            self.obsoletes[obsolete.name][key] = obsolete
+
+        for provide in package.provides:
+            self.provides[provide.name][key] = provide
+
+    def find(self, name, version_range):
+        """Finds the package by name and range of versions.
+
+        :param name: the package`s name.
+        :param version_range: the range of versions.
+        :return: the package if it is found, otherwise None
+        """
+        candidates = self.find_all(name, version_range)
+        if len(candidates) > 0:
+            return candidates[-1]
+        return None
+
+    def find_all(self, name, version_range):
+        """Finds the packages by name and range of versions.
+
+        :param name: the package`s name.
+        :param version_range: the range of versions.
+        :return: the list of suitable packages
+        """
+        if name in self.packages:
+            candidates = self.packages.find_all(name, version_range)
+            if len(candidates) > 0:
+                return candidates
+
+        if name in self.obsoletes:
+            return self._resolve_relation(self.obsoletes[name], version_range)
+
+        if name in self.provides:
+            return self._resolve_relation(self.provides[name], version_range)
+        return []
+
+    def get_unresolved_dependencies(self):
         """Gets the set of unresolved dependencies.
 
-        :param base: the base index to resolve dependencies
         :return: the set of unresolved depends.
         """
-        external = self.__get_unresolved_dependencies(self)
-        if base is None:
-            return external
-
         unresolved = set()
-        for relation in external:
-            for rel in relation:
-                if base.find(rel.name, rel.version) is not None:
-                    break
-            else:
-                unresolved.add(relation)
-        return unresolved
 
-    def get_minimal_subset(self, main, requirements):
-        """Gets the minimal work subset.
-
-        :param main: the main index, to complete requirements.
-        :param requirements: additional requirements.
-        :return: The set of resolved depends.
-        """
-
-        unresolved = set()
-        resolved = set()
-        if main is None:
-            def pkg_filter(*_):
-                pass
-        else:
-            pkg_filter = main.find
-            self.__get_unresolved_dependencies(main, requirements)
-
-        stack = list()
-        stack.append((None, requirements))
-
-        # add all mandatory packages
-        for pkg in self.mandatory_packages:
-            stack.append((pkg, pkg.requires))
-
-        while len(stack) > 0:
-            pkg, required = stack.pop()
-            resolved.add(pkg)
-            for require in required:
-                for rel in require:
+        for pkg in self.packages:
+            for required in pkg.requires:
+                for rel in required:
                     if rel not in unresolved:
-                        if pkg_filter(rel.name, rel.version) is not None:
-                            break
-                        # use all packages that meets depends
-                        candidates = self.find_all(rel.name, rel.version)
-                        found = False
-                        for cand in candidates:
-                            if cand == pkg:
-                                continue
-                            found = True
-                            if cand not in resolved:
-                                stack.append((cand, cand.requires))
-
-                        if found:
+                        if self.find(rel.name, rel.version) is not None:
                             break
                 else:
-                    unresolved.add(require)
-                    msg = "Unresolved depends: {0}".format(require)
-                    warnings.warn(UnresolvedWarning(msg))
-
-        resolved.remove(None)
-        return resolved
-
-    @staticmethod
-    def __get_unresolved_dependencies(index, unresolved=None):
-        """Gets the set of unresolved dependencies.
-
-        :param index: the search index.
-        :param unresolved: the known list of unresolved packages.
-        :return: the set of unresolved depends.
-        """
-
-        if unresolved is None:
-            unresolved = set()
-
-        for pkg in index:
-            for require in pkg.requires:
-                for rel in require:
-                    if rel not in unresolved:
-                        candidate = index.find(rel.name, rel.version)
-                        if candidate is not None and candidate != pkg:
-                            break
-                else:
-                    unresolved.add(require)
+                    unresolved.add(required)
         return unresolved
+
+    def _resolve_relation(self, relations, version_range):
+        """Resolve relation according to relations index.
+
+        :param relations: the index of relations
+        :param version_range: the range of versions
+        :return: package if found, otherwise None
+        """
+        result = []
+        for key, candidate in six.iteritems(relations):
+            if version_range.has_intersection(candidate.version):
+                result.extend(
+                    self.packages.find_all(key[0], VersionRange('=', key[1]))
+                )
+        result.sort(key=lambda x: x.version)
+        return result

@@ -20,29 +20,37 @@
 class Repository(object):
     """Structure to describe repository object."""
 
-    def __init__(self, name, url, architecture, origin):
+    def __init__(self, name, url, architecture, origin=None,
+                 path=None, section=None):
         """Initialises.
 
         :param name: the repository`s name, may be tuple of strings
         :param url: the repository`s URL
         :param architecture: the repository`s architecture
-        :param origin: the repository`s origin
+        :param origin: optional, the repository`s origin
+        :param path: the repository relative path, used for mirroring
+        :param section: the repository section
         """
-        self.name = name
-        self.url = url
         self.architecture = architecture
-        self.origin = origin
+        self.name = name
+        self.origin = origin or ""
+        self.url = url
+        self.section = section
+        self.path = path
 
     def __str__(self):
-        if isinstance(self.name, tuple):
-            return ".".join(self.name)
-        return self.name or self.url
+        if not self.section:
+            return self.url
 
-    def __unicode__(self):
-        if isinstance(self.name, tuple):
-            return u".".join(self.name)
-        return self.name or self.url
+        if isinstance(self.section, tuple):
+            section_str = " ".join(self.section)
+        else:
+            section_str = self.section
+        return " ".join((self.url, section_str))
 
     def __copy__(self):
         """Creates shallow copy of package."""
         return Repository(**self.__dict__)
+
+    def __hash__(self):
+        return hash((self.url, self.section))

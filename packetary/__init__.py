@@ -29,5 +29,11 @@ __all__ = [
     "RepositoryApi",
 ]
 
-__version__ = pbr.version.VersionInfo(
-    'packetary').version_string()
+try:
+    __version__ = pbr.version.VersionInfo(
+        'packetary').version_string()
+except Exception as e:
+    # when run tests without installing package
+    # pbr may raise exception.
+    print("ERROR:", e)
+    __version__ = "0.0.0"

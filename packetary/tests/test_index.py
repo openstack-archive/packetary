@@ -23,79 +23,25 @@ from packetary.objects.index import Index
 from packetary import objects
 from packetary.tests import base
 from packetary.tests.stubs.generator import gen_package
-from packetary.tests.stubs.generator import gen_relation
 
 
 class TestIndex(base.TestCase):
     def test_add(self):
         index = Index()
-        index.add(gen_package(version=1))
-        self.assertIn("package1", index.packages)
-        self.assertIn(1, index.packages["package1"])
-        self.assertIn("obsoletes1", index.obsoletes)
-        self.assertIn("provides1", index.provides)
+        package1 = gen_package(version=1)
+        index.add(package1)
+        self.assertIn(package1.name, index.packages)
+        self.assertEqual(
+            [(1, package1)],
+            list(index.packages[package1.name].items())
+        )
 
-        index.add(gen_package(version=2))
+        package2 = gen_package(version=2)
+        index.add(package2)
         self.assertEqual(1, len(index.packages))
-        self.assertIn(1, index.packages["package1"])
-        self.assertIn(2, index.packages["package1"])
-        self.assertEqual(1, len(index.obsoletes))
-        self.assertEqual(1, len(index.provides))
-
-    def test_find(self):
-        index = Index()
-        p1 = gen_package(version=1)
-        p2 = gen_package(version=2)
-        index.add(p1)
-        index.add(p2)
-
-        self.assertIs(
-            p1,
-            index.find("package1", objects.VersionRange("eq", 1))
-        )
-        self.assertIs(
-            p2,
-            index.find("package1", objects.VersionRange())
-        )
-        self.assertIsNone(
-            index.find("package1", objects.VersionRange("gt", 2))
-        )
-
-    def test_find_all(self):
-        index = Index()
-        p11 = gen_package(idx=1, version=1)
-        p12 = gen_package(idx=1, version=2)
-        p21 = gen_package(idx=2, version=1)
-        p22 = gen_package(idx=2, version=2)
-        index.add(p11)
-        index.add(p12)
-        index.add(p21)
-        index.add(p22)
-
-        self.assertItemsEqual(
-            [p11, p12],
-            index.find_all("package1", objects.VersionRange())
-        )
-        self.assertItemsEqual(
-            [p21, p22],
-            index.find_all("package2", objects.VersionRange("le", 2))
-        )
-
-    def test_find_newest_package(self):
-        index = Index()
-        p1 = gen_package(idx=1, version=2)
-        p2 = gen_package(idx=2, version=2)
-        p2.obsoletes.append(
-            gen_relation(p1.name, ["lt", p1.version])
-        )
-        index.add(p1)
-        index.add(p2)
-
-        self.assertIs(
-            p1, index.find(p1.name, objects.VersionRange("eq", p1.version))
-        )
-        self.assertIs(
-            p2, index.find(p1.name, objects.VersionRange("eq", 1))
+        self.assertEqual(
+            [(1, package1), (2, package2)],
+            list(index.packages[package1.name].items())
         )
 
     def test_find_top_down(self):
@@ -104,16 +50,17 @@ class TestIndex(base.TestCase):
         p2 = gen_package(version=2)
         index.add(p1)
         index.add(p2)
-        self.assertIs(
-            p2,
-            index.find("package1", objects.VersionRange("le", 2))
+        self.assertEqual(
+            [p1, p2],
+            index.find_all(p1.name, objects.VersionRange("<=", 2))
         )
-        self.assertIs(
-            p1,
-            index.find("package1", objects.VersionRange("lt", 2))
+        self.assertEqual(
+            [p1],
+            index.find_all(p1.name, objects.VersionRange("<", 2))
         )
-        self.assertIsNone(
-            index.find("package1", objects.VersionRange("lt", 1))
+        self.assertEqual(
+            [],
+            index.find_all(p1.name, objects.VersionRange("<", 1))
         )
 
     def test_find_down_up(self):
@@ -122,56 +69,33 @@ class TestIndex(base.TestCase):
         p2 = gen_package(version=2)
         index.add(p1)
         index.add(p2)
-        self.assertIs(
-            p2,
-            index.find("package1", objects.VersionRange("ge", 2))
+        self.assertEqual(
+            [p2],
+            index.find_all(p1.name, objects.VersionRange(">=", 2))
         )
-        self.assertIs(
-            p2,
-            index.find("package1", objects.VersionRange("gt", 1))
+        self.assertEqual(
+            [p2],
+            index.find_all(p1.name, objects.VersionRange(">", 1))
         )
-        self.assertIsNone(
-            index.find("package1", objects.VersionRange("gt", 2))
+        self.assertEqual(
+            [],
+            index.find_all(p1.name, objects.VersionRange(">", 2))
         )
 
-    def test_find_accurate(self):
+    def test_find_with_specified_version(self):
         index = Index()
-        p1 = gen_package(version=1)
-        p2 = gen_package(version=2)
-        index.add(p1)
-        index.add(p2)
-        self.assertIs(
-            p1,
-            index.find("package1", objects.VersionRange("eq", 1))
-        )
-        self.assertIsNone(
-            index.find("package1", objects.VersionRange("eq", 3))
-        )
-
-    def test_find_obsolete(self):
-        index = Index()
-        p1 = gen_package(version=1)
-        index.add(p1)
-
-        self.assertIs(
-            p1, index.find("obsoletes1", objects.VersionRange("le", 2))
-        )
-        self.assertIsNone(
-            index.find("obsoletes1", objects.VersionRange("gt", 2))
-        )
-
-    def test_find_provides(self):
-        index = Index()
-        p1 = gen_package(version=1)
-        p2 = gen_package(version=2)
+        p1 = gen_package(idx=1, version=1)
+        p2 = gen_package(idx=1, version=2)
         index.add(p1)
         index.add(p2)
 
-        self.assertIs(
-            p2, index.find("provides1", objects.VersionRange("ge", 2))
+        self.assertItemsEqual(
+            [p1],
+            index.find_all(p1.name, objects.VersionRange("=", p1.version))
         )
-        self.assertIsNone(
-            index.find("provides1", objects.VersionRange("lt", 2))
+        self.assertItemsEqual(
+            [p2],
+            index.find_all(p2.name, objects.VersionRange("=", p2.version))
         )
 
     def test_len(self):

@@ -49,6 +49,17 @@ _NAMESPACES = {
     "rpm": "http://linux.duke.edu/metadata/rpm"
 }
 
+_OPERATORS_MAPPING = {
+    'GT': '>',
+    'LT': '<',
+    'EQ': '=',
+    'GE': '>=',
+    'LE': '<=',
+}
+
+
+_DEFAULT_PRIORITY = 10
+
 
 class CreaterepoCallBack(object):
     """Callback object for createrepo"""
@@ -69,21 +80,25 @@ class CreaterepoCallBack(object):
 
 
 class RpmRepositoryDriver(RepositoryDriverBase):
-    def parse_urls(self, urls):
-        """Overrides method of superclass."""
-        return (url.rstrip("/") for url in urls)
+    def priority_sort(self, repo_data):
+        # DEB repository expects general values from 0 to 1000. 0
+        # to have lowest priority and 1000 -- the highest. Note that a
+        # priority above 1000 will allow even downgrades no matter the version
+        # of the prioritary package
+        priority = repo_data.get('priority')
+        if priority is None:
+            priority = _DEFAULT_PRIORITY
+        return priority
 
-    def get_repository(self, connection, url, arch, consumer):
-        name = utils.get_path_from_url(url, False)
+    def get_repository(self, connection, repository_data, arch, consumer):
         consumer(Repository(
-            name=name,
-            url=url + "/",
+            name=repository_data['name'],
+            url=utils.normalize_repository_url(repository_data["url"]),
             architecture=arch,
             origin=""
         ))
 
     def get_packages(self, connection, repository, consumer):
-        """Overrides method of superclass."""
         baseurl = repository.url
         repomd = urljoin(baseurl, "repodata/repomd.xml")
         self.logger.debug("repomd: %s", repomd)
@@ -130,8 +145,7 @@ class RpmRepositoryDriver(RepositoryDriverBase):
             counter += 1
         self.logger.info("loaded: %d packages from %s.", counter, repository)
 
-    def rebuild_repository(self, repository, packages):
-        """Overrides method of superclass."""
+    def add_packages(self, connection, repository, packages):
         basepath = utils.get_path_from_url(repository.url)
         self.logger.info("rebuild repository in %s", basepath)
         md_config = createrepo.MetaDataConfig()
@@ -165,12 +179,12 @@ class RpmRepositoryDriver(RepositoryDriverBase):
         # TODO(download gpk)
         # TODO(sources and locales)
         new_repo = copy.copy(repository)
-        new_repo.url = utils.localize_repo_url(destination, repository.url)
+        new_repo.url = utils.normalize_repository_url(destination)
         self.logger.info(
             "clone repository %s to %s", repository, new_repo.url
         )
-        utils.ensure_dir_exist(new_repo.url)
-        self.rebuild_repository(new_repo, set())
+        utils.ensure_dir_exist(destination)
+        self.add_packages(connection, new_repo, set())
         return new_repo
 
     def _load_db(self, connection, baseurl, repomd, *aliases):
@@ -264,7 +278,7 @@ class RpmRepositoryDriver(RepositoryDriverBase):
 
         return (
             attrs['name'],
-            attrs["flags"].lower(),
+            _OPERATORS_MAPPING[attrs["flags"]],
             self._unparse_version_attrs(attrs)
         )
 
