@@ -19,6 +19,16 @@
 import operator
 
 
+_OPERATORS = {
+    None: lambda x: True,
+    '=': operator.eq,
+    '>': operator.gt,
+    '<': operator.lt,
+    '>=': operator.ge,
+    '<=': operator.le,
+}
+
+
 class VersionRange(object):
     """Describes the range of versions.
 
@@ -27,7 +37,7 @@ class VersionRange(object):
     equal, greater, less, greater or equal, less or equal.
     """
 
-    __slots__ = ["op", "edge"]
+    __slots__ = ("op", "edge")
 
     def __init__(self, op=None, edge=None):
         """Initialises.
@@ -35,8 +45,14 @@ class VersionRange(object):
         :param op: the name of operator to compare.
         :param edge: the edge of versions.
         """
+        if op not in _OPERATORS:
+            raise ValueError("Invalid comparison operator: '{0}'".format(op))
+
         self.op = op
         self.edge = edge
+
+    def __contains__(self, point):
+        return _OPERATORS[self.op](point, self.edge)
 
     def __hash__(self):
         return hash((self.op, self.edge))
@@ -59,7 +75,11 @@ class VersionRange(object):
         return u"any"
 
     def has_intersection(self, other):
-        """Checks that 2 ranges has intersection."""
+        """Checks that 2 ranges has intersection.
+
+        :param other: the candidate to check
+        :return: True if intersection exists, otherwise False
+        """
 
         if not isinstance(other, VersionRange):
             raise TypeError(
@@ -70,28 +90,16 @@ class VersionRange(object):
         if self.op is None or other.op is None:
             return True
 
-        my_op = getattr(operator, self.op)
-        other_op = getattr(operator, other.op)
         if self.op[0] == other.op[0]:
-            if self.op[0] == 'l':
-                if self.edge < other.edge:
-                    return my_op(self.edge, other.edge)
-                return other_op(other.edge, self.edge)
-            elif self.op[0] == 'g':
-                if self.edge > other.edge:
-                    return my_op(self.edge, other.edge)
-                return other_op(other.edge, self.edge)
-
-        if self.op == 'eq':
-            return other_op(self.edge, other.edge)
-
-        if other.op == 'eq':
-            return my_op(other.edge, self.edge)
-
-        return (
-            my_op(other.edge, self.edge) and
-            other_op(self.edge, other.edge)
-        )
+            if self.op == '=':
+                return self.edge == other.edge
+            # the intersection is -inf or +inf
+            return True
+        if self.edge == other.edge:
+            # need to cover case < a and >= a
+            return self.edge in other and other.edge in self
+        # all other cases
+        return self.edge in other or other.edge in self
 
 
 class PackageRelation(object):
@@ -101,7 +109,7 @@ class PackageRelation(object):
     and range of versions that satisfies requirement.
     """
 
-    __slots__ = ["name", "version", "alternative"]
+    __slots__ = ("name", "version", "alternative")
 
     def __init__(self, name, version=None, alternative=None):
         """Initialises.

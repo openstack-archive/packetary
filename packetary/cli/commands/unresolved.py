@@ -17,7 +17,6 @@
 #    51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 
 from packetary.cli.commands.base import BaseProduceOutputCommand
-from packetary.cli.commands.utils import read_lines_from_file
 
 
 class ListOfUnresolved(BaseProduceOutputCommand):
@@ -29,31 +28,9 @@ class ListOfUnresolved(BaseProduceOutputCommand):
         "alternative",
     )
 
-    def get_parser(self, prog_name):
-        parser = super(ListOfUnresolved, self).get_parser(prog_name)
-        main_group = parser.add_mutually_exclusive_group(required=False)
-        main_group.add_argument(
-            '-m', '--main-url',
-            nargs="+",
-            dest='main',
-            metavar='URL',
-            help='Space separated list of URLs of repository(es) '
-                 ' that are used to resolve dependencies.')
-
-        main_group.add_argument(
-            '-M', '--main-file',
-            type=read_lines_from_file,
-            dest='main',
-            metavar='FILENAME',
-            help='The path to the file, that contains '
-                 'list of URLs of repository(es) '
-                 ' that are used to resolve dependencies.')
-        return parser
-
     def take_repo_action(self, api, parsed_args):
         return api.get_unresolved_dependencies(
-            parsed_args.origins,
-            parsed_args.main,
+            parsed_args.repositories
         )
 
 
