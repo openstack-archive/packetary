@@ -165,8 +165,9 @@ class TestRpmDriver(base.TestCase):
         package = packages[0]
         self.assertTrue(package.mandatory)
 
+    @mock.patch("packetary.drivers.rpm_driver.os.path.exists")
     @mock.patch("packetary.drivers.rpm_driver.shutil")
-    def test_add_packages(self, shutil):
+    def test_add_packages(self, shutil, path_exists):
         self.createrepo.MDError = ValueError
         self.createrepo.MetaDataGenerator().doFinalMove.side_effect = [
             None, self.createrepo.MDError()
@@ -174,9 +175,9 @@ class TestRpmDriver(base.TestCase):
         repo = gen_repository("test", url="file:///repo/os/x86_64")
         self.createrepo.MetaDataConfig().outputdir = "/repo/os/x86_64"
         self.createrepo.MetaDataConfig().tempdir = "tmp"
-
+        self.createrepo.MetaDataConfig().finaldir = "repodata"
+        path_exists.side_effect = [True, False]
         self.driver.add_packages(self.connection, repo, set())
-
         self.assertEqual(
             "/repo/os/x86_64",
             self.createrepo.MetaDataConfig().directory
@@ -191,6 +192,8 @@ class TestRpmDriver(base.TestCase):
 
         with self.assertRaises(RuntimeError):
             self.driver.add_packages(self.connection, repo, set())
+
+        self.assertFalse(self.createrepo.MetaDataConfig().update)
         shutil.rmtree.assert_called_once_with(
             "/repo/os/x86_64/tmp", ignore_errors=True
         )
@@ -199,6 +202,9 @@ class TestRpmDriver(base.TestCase):
     def test_fork_repository(self, ensure_dir_exists_mock):
         repo = gen_repository("os", url="http://localhost/os/x86_64/")
         self.createrepo.MetaDataGenerator().doFinalMove.side_effect = [None]
+        self.createrepo.MetaDataConfig().outputdir = "/repo/os/x86_64"
+        self.createrepo.MetaDataConfig().tempdir = "tmp"
+        self.createrepo.MetaDataConfig().finaldir = "repodata"
         new_repo = self.driver.fork_repository(
             self.connection,
             repo,
@@ -210,3 +216,58 @@ class TestRpmDriver(base.TestCase):
         self.assertEqual("file:///repo/os/x86_64/", new_repo.url)
         self.createrepo.MetaDataGenerator()\
             .doFinalMove.assert_called_once_with()
+
+    @mock.patch("packetary.drivers.rpm_driver.utils.ensure_dir_exist")
+    def test_create_repository(self, ensure_dir_exists_mock):
+        repository_data = {
+            "name": "Test", "url": "file:///repo/os/x86_64", "origin": "Test"
+        }
+        repo = self.driver.create_repository(repository_data, "x86_64")
+        ensure_dir_exists_mock.assert_called_once_with("/repo/os/x86_64/")
+        self.assertEqual(repository_data["name"], repo.name)
+        self.assertEqual("x86_64", repo.architecture)
+        self.assertEqual(repository_data["url"] + "/", repo.url)
+        self.assertEqual(repository_data["origin"], repo.origin)
+
+    @mock.patch("packetary.drivers.rpm_driver.utils")
+    def test_load_package_from_file(self, utils):
+        file_info = ("/test.rpm", 2, [3, 4, 5])
+        utils.get_size_and_checksum_for_files.return_value = [file_info]
+        utils.get_path_from_url.return_value = "/repo/x86_64/test.rpm"
+        rpm_mock = mock.MagicMock(
+            requires=[('test1', 'EQ', ('0', '1.2.3', '1.el5'))],
+            provides=[('test2', None, (None, None, None))],
+            obsoletes=[]
+        )
+        self.createrepo.yumbased.YumLocalPackage.return_value = rpm_mock
+        rpm_mock.returnLocalHeader.return_value = {
+            "name": "Test", "epoch": 1, "version": "1.2.3", "release": "1",
+            "size": "10"
+        }
+        repo = gen_repository("Test", url="file:///repo/os/x86_64/")
+        pkg = self.driver.load_package_from_file(repo, "test.rpm")
+        utils.get_path_from_url.assert_called_once_with(
+            "file:///repo/os/x86_64/test.rpm"
+        )
+        self.createrepo.yumbased.YumLocalPackage.assert_called_once_with(
+            filename="/repo/x86_64/test.rpm"
+        )
+        utils.get_size_and_checksum_for_files.assert_called_once_with(
+            ["/repo/x86_64/test.rpm"], mock.ANY
+        )
+
+        self.assertEqual("Test", pkg.name)
+        self.assertEqual("1-1.2.3-1", str(pkg.version))
+        self.assertEqual("test.rpm", pkg.filename)
+        self.assertEqual((3, 4, 5), pkg.checksum)
+        self.assertEqual(10, pkg.filesize)
+        self.assertItemsEqual(
+            ['test1 (= 0-1.2.3-1.el5)'],
+            (str(x) for x in pkg.requires)
+        )
+        self.assertItemsEqual(
+            ['test2 (any)'],
+            (str(x) for x in pkg.provides)
+        )
+        self.assertEqual([], pkg.obsoletes)
+        self.assertEqual(pkg.mandatory, False)
