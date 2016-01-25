@@ -25,9 +25,9 @@ class PackageVersion(ComparableObject):
     __slots__ = ["epoch", "version", "release"]
 
     def __init__(self, epoch, version, release):
-        self.epoch = int(epoch)
-        self.version = tuple(version)
-        self.release = tuple(release)
+        self.epoch = int(epoch or 0)
+        self.version = tuple(version.split('.'))
+        self.release = tuple(release.split('.'))
 
     @classmethod
     def from_string(cls, text):
@@ -41,7 +41,7 @@ class PackageVersion(ComparableObject):
             components = components[1:]
         else:
             epoch = 0
-        return cls(epoch, components[0].split("."), components[1].split("."))
+        return cls(epoch, components[0], components[1])
 
     def cmp(self, other):
         if not isinstance(other, PackageVersion):

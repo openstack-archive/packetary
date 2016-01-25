@@ -133,3 +133,12 @@ class TestLibraryUtils(base.TestCase):
             utils.ensure_dir_exist("/private")
         with self.assertRaises(ValueError):
             utils.ensure_dir_exist(1)
+
+    def test_get_filename_from_uri(self):
+        self.assertEqual("test.pkg", utils.get_filename_from_uri("test.pkg"))
+        self.assertEqual(
+            "test.pkg", utils.get_filename_from_uri("/root/test.pkg")
+        )
+        self.assertEqual(
+            "test.pkg", utils.get_filename_from_uri("file:///root/test.pkg")
+        )
