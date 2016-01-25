@@ -191,14 +191,71 @@ class DebRepositoryDriver(RepositoryDriverBase):
         # TODO(sources and locales)
         new_repo = copy.copy(repository)
         new_repo.url = utils.normalize_repository_url(destination)
+        self._create_repository_structure(new_repo)
+        return new_repo
+
+    def create_repository(self, repository_data, arch):
+        url = utils.normalize_repository_url(repository_data['url'])
+        suite = repository_data['suite']
+        component = repository_data.get('section')
+        path = repository_data.get('path')
+        name = repository_data.get('name')
+        origin = repository_data.get('origin')
+
+        if component is None:
+            raise ValueError("The flat format does not supported.")
+        if isinstance(component, list):
+            if len(component) != 1:
+                raise ValueError("The only single component is acceptable.")
+            component = component[0]
+
+        repository = Repository(
+            name=name,
+            url=url,
+            architecture=arch,
+            origin=origin,
+            section=(suite, component),
+            path=path
+        )
+        self._create_repository_structure(repository)
+        self.logger.info("Created: %d repository.", repository.name)
+        return repository
+
+    def load_package_from_file(self, repository, filename):
+        filepath = utils.get_path_from_url(repository.url + filename)
+        _, size, checksum = next(iter(utils.get_size_and_checksum_for_files(
+            [filepath], _checksum_collector)
+        ))
+        with closing(debfile.DebFile(filepath)) as deb:
+            debcontrol = deb822.Packages(
+                deb.control.get_content(debfile.CONTROL_FILE)
+            )
+
+        return Package(
+            repository=repository,
+            name=debcontrol["package"],
+            version=Version(debcontrol['version']),
+            filesize=int(debcontrol.get('size', size)),
+            filename=filename,
+            checksum=FileChecksum(*checksum),
+            mandatory=self._is_mandatory(debcontrol),
+            requires=self._get_relations(
+                debcontrol, "depends", "pre-depends",
+                "recommends"
+            ),
+            provides=self._get_relations(debcontrol, "provides"),
+            obsoletes=[]
+        )
+
+    def get_relative_path(self, repository, filename):
+        return "/".join(("pool", repository.section[1], filename[0], filename))
+
+    def _create_repository_structure(self, repository):
         packages_file = utils.get_path_from_url(
-            self._get_url_of_metafile(new_repo, "Packages")
+            self._get_url_of_metafile(repository, "Packages")
         )
         release_file = utils.get_path_from_url(
-            self._get_url_of_metafile(new_repo, "Release")
-        )
-        self.logger.info(
-            "clone repository %s to %s", repository, new_repo.url
+            self._get_url_of_metafile(repository, "Release")
         )
         utils.ensure_dir_exist(os.path.dirname(release_file))
 
@@ -213,7 +270,6 @@ class DebRepositoryDriver(RepositoryDriverBase):
 
         open(packages_file, "ab").close()
         gzip.open(packages_file + ".gz", "ab").close()
-        return new_repo
 
     def _update_suite_index(self, repository):
         """Updates the Release file in the suite."""
