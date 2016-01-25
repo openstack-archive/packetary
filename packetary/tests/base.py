@@ -25,3 +25,9 @@ except ImportError:
 class TestCase(unittest.TestCase):
 
     """Test case base class for all unit tests."""
+
+    def _check_cases(self, assertion, cases, method):
+        for exp, value in cases:
+            assertion(
+                exp, method(*value), "{0} != f({1})".format(exp, value)
+            )

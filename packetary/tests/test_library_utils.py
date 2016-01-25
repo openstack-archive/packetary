@@ -23,22 +23,16 @@ from packetary.tests import base
 
 
 class TestLibraryUtils(base.TestCase):
+
     def test_append_token_to_string(self):
-        self.assertEqual(
-            "v1 v2 v3",
-            utils.append_token_to_string("v2 v3", "v1")
-        )
-        self.assertEqual(
-            "v1",
-            utils.append_token_to_string("", "v1")
-        )
-        self.assertEqual(
-            "v1 v2 v3 v4",
-            utils.append_token_to_string('v1\tv2   v3', "v4")
-        )
-        self.assertEqual(
-            "v1 v2 v3",
-            utils.append_token_to_string('v1 v2 v3', "v1")
+        cases = [
+            ("v1 v2 v3", ("v2 v3", "v1")),
+            ("v1", ("", "v1")),
+            ("v1 v2 v3 v4", ("v1\tv2   v3", "v4")),
+            ("v1 v2 v3", ("v1 v2 v3", "v1")),
+        ]
+        self._check_cases(
+            self.assertEqual, cases, utils.append_token_to_string
         )
 
     def test_composite_writer(self):
@@ -76,23 +70,14 @@ class TestLibraryUtils(base.TestCase):
         )
 
     def test_get_path_from_url(self):
-        self.assertEqual(
-            "/a/f.txt",
-            utils.get_path_from_url("/a/f.txt")
-        )
-
-        self.assertEqual(
-            "/a/f.txt",
-            utils.get_path_from_url("file:///a/f.txt?size=1")
-        )
-
+        cases = [
+            ("/a/f.txt", ("/a/f.txt",)),
+            ("/a/f.txt", ("file:///a/f.txt?size=1",)),
+            ("/f.txt", ("http://host/f.txt", False)),
+        ]
+        self._check_cases(self.assertEqual, cases, utils.get_path_from_url)
         with self.assertRaises(ValueError):
             utils.get_path_from_url("http:///a/f.txt")
-
-        self.assertEqual(
-            "/f.txt",
-            utils.get_path_from_url("http://host/f.txt", False)
-        )
 
     @mock.patch("packetary.library.utils.os")
     def test_normalize_repository_url(self, os_mock):
@@ -105,17 +90,14 @@ class TestLibraryUtils(base.TestCase):
         os_mock.path.abspath.side_effect = abs_patch_mock
 
         cases = [
-            ("file:///repo/", "/repo"),
-            ("file:///root/repo/", "./repo"),
-            ("http://localhost/repo/", "http://localhost/repo"),
-            ("http://localhost/repo/", "http://localhost/repo/"),
+            ("file:///repo/", ("/repo",)),
+            ("file:///root/repo/", ("./repo",)),
+            ("http://localhost/repo/", ("http://localhost/repo",)),
+            ("http://localhost/repo/", ("http://localhost/repo/",)),
         ]
-
-        for expected, url in cases:
-            self.assertEqual(
-                expected, utils.normalize_repository_url(url),
-                "URL: {0}".format(url)
-            )
+        self._check_cases(
+            self.assertEqual, cases, utils.normalize_repository_url
+        )
 
     @mock.patch("packetary.library.utils.os")
     def test_ensure_dir_exist(self, os):
@@ -133,3 +115,12 @@ class TestLibraryUtils(base.TestCase):
             utils.ensure_dir_exist("/private")
         with self.assertRaises(ValueError):
             utils.ensure_dir_exist(1)
+
+    def test_get_filename_from_uri(self):
+        cases = [
+            ("test.pkg", ("test.pkg",)),
+            ("test.pkg", ("/root/test.pkg",)),
+            ("test.pkg", ("file:///root/test.pkg",)),
+            ("", ("file:///root/",))
+        ]
+        self._check_cases(self.assertEqual, cases, utils.get_filename_from_uri)

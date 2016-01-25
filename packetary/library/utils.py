@@ -104,6 +104,15 @@ def get_url_from_path(path):
     return "file://" + path
 
 
+def get_filename_from_uri(uri):
+    """Get filename from the URI.
+
+    :param uri: the URI
+    :return: the filename
+    """
+    return uri.rpartition("/")[-1]
+
+
 def normalize_repository_url(url):
     """Convert URL of repository to normal form.
 
