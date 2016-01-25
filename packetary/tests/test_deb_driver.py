@@ -265,3 +265,98 @@ class TestDebDriver(base.TestCase):
         open.assert_any_call("/root/dists/trusty/Release", "a+b")
         fcntl.flock.assert_any_call(files[0].fileno(), fcntl.LOCK_EX)
         fcntl.flock.assert_any_call(files[0].fileno(), fcntl.LOCK_UN)
+
+    @mock.patch.multiple(
+        "packetary.drivers.deb_driver",
+        deb822=mock.DEFAULT,
+        gzip=mock.DEFAULT,
+        open=mock.DEFAULT,
+        os=mock.DEFAULT,
+    )
+    @mock.patch("packetary.drivers.deb_driver.utils.ensure_dir_exist")
+    def test_create_repository(self, mkdir_mock, deb822, gzip, open, os):
+        repository_data = {
+            "name": "Test", "url": "file:///repo", "suite": "trusty",
+            "section": "main", "type": "rpm", "priority": "100",
+            "origin": "Origin", "path": "/repo"
+        }
+        repo = self.driver.create_repository(repository_data, "x86_64")
+        self.assertEqual(repository_data["name"], repo.name)
+        self.assertEqual("x86_64", repo.architecture)
+        self.assertEqual(repository_data["url"] + "/", repo.url)
+        self.assertEqual(repository_data["origin"], repo.origin)
+        self.assertEqual(
+            (repository_data["suite"], repository_data["section"]),
+            repo.section
+        )
+        self.assertEqual(repository_data["path"], repo.path)
+        mkdir_mock.assert_called_once_with(os.path.dirname())
+        open.assert_any_call(
+            "/repo/dists/trusty/main/binary-amd64/Release", "wb"
+        )
+        open.assert_any_call(
+            "/repo/dists/trusty/main/binary-amd64/Packages", "ab"
+        )
+        gzip.open.assert_called_once_with(
+            "/repo/dists/trusty/main/binary-amd64/Packages.gz", "ab"
+        )
+
+    def test_createrepository_fails_if_invalid_data(self):
+        repository_data = {
+            "name": "Test", "url": "file:///repo", "suite": "trusty",
+            "type": "rpm", "priority": "100",
+            "origin": "Origin", "path": "/repo"
+        }
+        with self.assertRaisesRegexp(ValueError, "flat format"):
+            self.driver.create_repository(repository_data, "x86_64")
+        with self.assertRaisesRegexp(ValueError, "single component"):
+            repository_data["section"] = ["main", "universe"]
+            self.driver.create_repository(repository_data, "x86_64")
+
+    @mock.patch.multiple(
+        "packetary.drivers.deb_driver",
+        debfile=mock.DEFAULT,
+        open=mock.DEFAULT,
+        os=mock.DEFAULT,
+        utils=mock.DEFAULT,
+    )
+    def test_load_package_from_file(self, debfile, os, open, utils):
+        fake_repo = gen_repository(
+            name=("trusty", "main"), url="file:///repo"
+        )
+        file_info = ("/test.rpm", 2, [3, 4, 5])
+        utils.get_size_and_checksum_for_files.return_value = [file_info]
+        debfile.DebFile().control.get_content.return_value = {
+            "package": "Test",
+            "version": "2.7.9-1",
+            "depends": "test1 (>= 2.2.1)",
+            "replaces": "test2 (<< 2.2.1)",
+            "recommends": "test3 (>> 2.2.1)",
+            "provides": "test4 (>> 2.2.1)"
+        }
+        pkg = self.driver.load_package_from_file(
+            fake_repo, "pool/main/t/test.deb"
+        )
+
+        self.assertEqual("Test", pkg.name)
+        self.assertEqual("2.7.9-1", pkg.version)
+        self.assertEqual("pool/main/t/test.deb", pkg.filename)
+        self.assertEqual((3, 4, 5), pkg.checksum)
+        self.assertEqual(2, pkg.filesize)
+        self.assertItemsEqual(
+            ['test1 (>= 2.2.1)', 'test3 (> 2.2.1)'],
+            (str(x) for x in pkg.requires)
+        )
+        self.assertItemsEqual(
+            ['test4 (> 2.2.1)'],
+            (str(x) for x in pkg.provides)
+        )
+        self.assertEqual([], pkg.obsoletes)
+        self.assertFalse(pkg.mandatory)
+
+    def test_get_relative_path(self):
+        repo = gen_repository(
+            "test", "file://repo", section=("trusty", "main")
+        )
+        rel_path = self.driver.get_relative_path(repo, "test.pkg")
+        self.assertEqual("pool/main/t/test.pkg", rel_path)

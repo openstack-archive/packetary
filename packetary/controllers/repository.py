@@ -97,6 +97,7 @@ class RepositoryController(object):
             destination,
             repository.path or utils.get_path_from_url(repository.url, False)
         )
+        logger.info("cloning repository '%s' to '%s'", repository, new_path)
         return self.driver.fork_repository(
             self.context.connection, repository, new_path, source, locale
         )
@@ -120,6 +121,22 @@ class RepositoryController(object):
             self.context.connection, repository, packages
         )
 
+    def create_repository(self, repository_data, package_files):
+        """Creates new repository from specified packages.
+
+        :param repository_data: the description of repository
+        :param package_files: the list of paths of packages
+        :return : the new repository
+        """
+        repo = self.driver.create_repository(repository_data, self.arch)
+        packages = set()
+        with self.context.async_section() as section:
+            for url in package_files:
+                section.execute(self._add_package, repo, url, packages.add)
+
+        self.assign_packages(repo, packages)
+        return repo
+
     def _copy_packages(self, target, packages, observer):
         with self.context.async_section() as section:
             for package in packages:
@@ -128,17 +145,33 @@ class RepositoryController(object):
                 )
 
     def _copy_package(self, target, package, observer):
-        bytes_copied = 0
-        if target.url != package.repository.url:
-            dst_path = os.path.join(
-                utils.get_path_from_url(target.url), package.filename
+        if package.repository is None:
+            src_url = package.filename
+            dst_path = self.driver.get_relative_path(
+                target, package.filename.rpartition("/")[-1]
             )
-            src_path = urljoin(package.repository.url, package.filename)
-            bytes_copied = self.context.connection.retrieve(
-                src_path, dst_path, size=package.filesize
-            )
-            if package.filesize < 0:
-                package.filesize = bytes_copied
+        elif target.url != package.repository.url:
+            src_url = urljoin(package.repository.url, package.filename)
+            dst_path = package.filename
+        else:
+            return
 
+        bytes_copied = self.context.connection.retrieve(
+            src_url,
+            utils.get_path_from_url(urljoin(target.url, dst_path)),
+            size=package.filesize
+        )
+        if package.filesize < 0:
+            package.filesize = bytes_copied
         if observer:
             observer(bytes_copied)
+
+    def _add_package(self, repository, src_url, consumer):
+        dst_path = self.driver.get_relative_path(
+            repository, src_url.rpartition("/")[-1]
+        )
+        self.context.connection.retrieve(
+            src_url,
+            utils.get_path_from_url(urljoin(repository.url, dst_path))
+        )
+        consumer(self.driver.load_package_from_file(repository, dst_path))
