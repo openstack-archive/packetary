@@ -89,6 +89,13 @@ class TestRepositoryApi(base.TestCase):
             context, "deb", "x86_64"
         )
 
+    def test_create_repository(self):
+        file_urls = ["file://test1.pkg"]
+        self.api.create_repository(self.repo_data, file_urls)
+        self.controller.create_repository.assert_called_once_with(
+            self.repo_data, file_urls
+        )
+
     def test_get_packages_as_is(self):
         packages = self.api.get_packages([self.repo_data], None)
         self.assertEqual(5, len(packages))
@@ -189,7 +196,7 @@ class TestRepositoryApi(base.TestCase):
         self.assertEqual(expected, actual)
         self.assertIsNone(self.api._load_requirements(None))
 
-    def test_validate_repos_data(self):
+    def test_validate_repo_data(self):
         # TODO(bgaifullin) implement me
         pass
 
