@@ -112,6 +112,15 @@ class RepositoryApi(object):
         context = config if isinstance(config, Context) else Context(config)
         return cls(RepositoryController.load(context, repotype, repoarch))
 
+    def create_repository(self, repo_data, package_files):
+        """Create new repository with specified packages.
+
+        :param repo_data: The description of repository
+        :param package_files: The list of URLs of packages
+        """
+        self._validate_repo_data(repo_data)
+        return self.controller.create_repository(repo_data, package_files)
+
     def get_packages(self, repos_data, requirements_data=None,
                      include_mandatory=False):
         """Gets the list of packages from repository(es).
@@ -204,7 +213,8 @@ class RepositoryApi(object):
         return forest.get_packages(reqs, include_mandatory)
 
     def _load_repositories(self, repos_data):
-        self._validate_repos_data(repos_data)
+        for repo_data in repos_data:
+            self._validate_repo_data(repo_data)
         return self.controller.load_repositories(repos_data)
 
     def _parse_requirements(self, requirements_data):
@@ -222,7 +232,7 @@ class RepositoryApi(object):
                     ))
         return result
 
-    def _validate_repos_data(self, repos_data):
+    def _validate_repo_data(self, repo_data):
         # TODO(bgaifullin) implement me
         pass
 

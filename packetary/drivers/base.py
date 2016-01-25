@@ -31,6 +31,7 @@ class RepositoryDriverBase(object):
     - implement all abstract methods
     - register implementation in 'packetary.drivers' namespace
     """
+
     def __init__(self):
         self.logger = logging.getLogger(__package__)
 
@@ -73,6 +74,33 @@ class RepositoryDriverBase(object):
         :param connection: the connection manager instance
         :param repository: the target repository
         :param packages: the set of packages
+        """
+
+    @abc.abstractmethod
+    def create_repository(self, repository_data, arch):
+        """Create new repository.
+
+        :param repository_data: repository input data
+        :param arch: the repository`s architecture
+        :return: new repository object
+        """
+
+    @abc.abstractmethod
+    def load_package_from_file(self, repository, filepath):
+        """Create package object from file.
+
+        :param repository: the repository object
+        :param filepath: the package path
+        :return: new package object
+        """
+
+    @abc.abstractmethod
+    def make_package_path(self, repository, url):
+        """Makes the relative package path.
+
+        :param repository: the repository object
+        :param url: the full package url
+        :return: get the relative package path
         """
 
     @abc.abstractmethod

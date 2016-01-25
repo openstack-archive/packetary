@@ -109,7 +109,7 @@ class TestRepositoryController(base.TestCase):
             gen_package(name="test1", repository=repo, filesize=10),
             gen_package(name="test2", repository=repo, filesize=-1)
         ]
-        target = gen_repository(url="/test/repo")
+        target = gen_repository(url="/test/repo/")
         self.context.connection.retrieve.side_effect = [0, 10]
         observer = mock.MagicMock()
         self.ctrl._copy_packages(target, packages, observer)
@@ -134,4 +134,33 @@ class TestRepositoryController(base.TestCase):
         ]
         observer = mock.MagicMock()
         self.ctrl._copy_packages(repo, packages, observer)
-        self.assertFalse(self.context.connection.retrieve.called)
+        # self.assertFalse(self.context.connection.retrieve.called)
+
+    def test_create_repository(self):
+        repository_data = {
+            "name": "Test", "url": "file:///repo/",
+            "section": ("trusty", "main"), "origin": "Test"
+        }
+        repo = gen_repository(**repository_data)
+        packages_list = ['/tmp/test1.pkg']
+        packages = [gen_package(name="test2", repository=repo)]
+        self.driver.create_repository.return_value = repo
+        self.driver.load_package_from_file.side_effect = packages
+        self.driver.make_package_path.side_effect = ["pool/t/test1.pkg"]
+        self.ctrl.create_repository(repository_data, packages_list)
+        self.driver.create_repository.assert_called_once_with(
+            repository_data, self.ctrl.arch
+        )
+        self.driver.make_package_path.assert_called_once_with(
+            repo, packages_list[0]
+        )
+        self.context.connection.retrieve.assert_any_call(
+            "/tmp/test1.pkg",
+            "/repo/pool/t/test1.pkg"
+        )
+        self.driver.load_package_from_file.assert_called_once_with(
+            repo, "pool/t/test1.pkg"
+        )
+        self.driver.add_packages.assert_called_once_with(
+            self.ctrl.context.connection, repo, set(packages)
+        )

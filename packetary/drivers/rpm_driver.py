@@ -25,7 +25,9 @@ import createrepo
 import lxml.etree as etree
 import six
 
+
 from packetary.drivers.base import RepositoryDriverBase
+from packetary.library.checksum import composite as checksum_composite
 from packetary.library.streams import GzipDecompress
 from packetary.library import utils
 from packetary.objects import FileChecksum
@@ -33,6 +35,7 @@ from packetary.objects import Package
 from packetary.objects import PackageRelation
 from packetary.objects import PackageVersion
 from packetary.objects import Repository
+from packetary.objects import VersionRange
 
 
 urljoin = six.moves.urllib.parse.urljoin
@@ -49,7 +52,10 @@ _NAMESPACES = {
     "rpm": "http://linux.duke.edu/metadata/rpm"
 }
 
+_checksum_collector = checksum_composite('md5', 'sha1', 'sha256')
+
 _OPERATORS_MAPPING = {
+    None: None,
     'GT': '>',
     'LT': '<',
     'EQ': '=',
@@ -57,12 +63,12 @@ _OPERATORS_MAPPING = {
     'LE': '<=',
 }
 
-
 _DEFAULT_PRIORITY = 10
 
 
 class CreaterepoCallBack(object):
     """Callback object for createrepo"""
+
     def __init__(self, logger):
         self.logger = logger
 
@@ -152,7 +158,9 @@ class RpmRepositoryDriver(RepositoryDriverBase):
         try:
             md_config.workers = multiprocessing.cpu_count()
             md_config.directory = str(basepath)
-            md_config.update = True
+            md_config.update = os.path.exists(
+                os.path.join(basepath, md_config.finaldir)
+            )
             mdgen = createrepo.MetaDataGenerator(
                 config_obj=md_config, callback=CreaterepoCallBack(self.logger)
             )
@@ -186,6 +194,41 @@ class RpmRepositoryDriver(RepositoryDriverBase):
         utils.ensure_dir_exist(destination)
         self.add_packages(connection, new_repo, set())
         return new_repo
+
+    def create_repository(self, repository_data, arch):
+        repository = Repository(
+            name=repository_data['name'],
+            url=repository_data["url"].rstrip("/") + "/",
+            architecture=arch,
+            origin=repository_data.get('origin')
+        )
+        utils.ensure_dir_exist(utils.get_path_from_url(repository.url))
+        return repository
+
+    def load_package_from_file(self, repository, filename):
+        filepath = utils.get_path_from_url(repository.url + filename)
+        _, size, checksum = next(iter(utils.get_size_and_checksum_for_files(
+            [filepath], _checksum_collector)
+        ))
+        pkg = createrepo.yumbased.YumLocalPackage(filename=filepath)
+        hdr = pkg.returnLocalHeader()
+        return Package(
+            repository=repository,
+            name=hdr["name"],
+            version=PackageVersion(
+                hdr['epoch'], hdr['version'], hdr['release']
+            ),
+            filesize=int(hdr['size']),
+            filename=filename,
+            checksum=FileChecksum(*checksum),
+            mandatory=False,
+            requires=self._parse_package_relations(pkg.requires),
+            obsoletes=self._parse_package_relations(pkg.obsoletes),
+            provides=self._parse_package_relations(pkg.provides),
+        )
+
+    def make_package_path(self, repository, url):
+        return os.path.basename(utils.get_path_from_url(url, False))
 
     def _load_db(self, connection, baseurl, repomd, *aliases):
         """Loads database.
@@ -260,6 +303,23 @@ class RpmRepositoryDriver(RepositoryDriverBase):
 
         return relations
 
+    @staticmethod
+    def _parse_package_relations(relations):
+        """Parses yum package relations.
+
+        :param relations: list of tuples
+                          (name, flags, (epoch, version, release))
+        :return: list of PackageRelation objects
+        """
+        return [
+            PackageRelation(
+                x[0], VersionRange(
+                    _OPERATORS_MAPPING[x[1]], x[1] and PackageVersion(*x[2])
+                )
+            )
+            for x in relations
+        ]
+
     def _get_checksum(self, pkg_tag):
         """Gets checksum from package tag."""
         checksum = dict.fromkeys(("md5", "sha1", "sha256"), None)
@@ -291,7 +351,7 @@ class RpmRepositoryDriver(RepositoryDriverBase):
         """
 
         return PackageVersion(
-            int(attrs.get("epoch", 0)),
-            attrs.get("ver", "0.0").split("."),
-            attrs.get("rel", "0").split(".")
+            attrs.get("epoch", 0),
+            attrs.get("ver", "0.0"),
+            attrs.get("rel", "0")
         )

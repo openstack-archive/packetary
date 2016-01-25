@@ -77,6 +77,9 @@ _CHECKSUM_METHODS = (
     "SHA256"
 )
 
+
+CONTROL_FILE = 'control'
+
 _DEFAULT_PRIORITY = 500
 
 _checksum_collector = checksum_composite('md5', 'sha1', 'sha256')
@@ -191,29 +194,82 @@ class DebRepositoryDriver(RepositoryDriverBase):
         # TODO(sources and locales)
         new_repo = copy.copy(repository)
         new_repo.url = utils.get_url_from_path(destination).rstrip("/") + "/"
+        self.logger.info("clone repository %s to %s", repository, new_repo.url)
+        self._create_repository_structure(new_repo)
+        return new_repo
+
+    def create_repository(self, repository_data, arch):
+        url = repository_data['url'].rstrip("/")
+        suite = repository_data['suite']
+        component = repository_data.get('section')
+        path = repository_data.get('path')
+        name = repository_data.get('name')
+        origin = repository_data.get('origin')
+
+        if component is None:
+            raise ValueError("The flat format does not supported.")
+        if isinstance(component, list):
+            if len(component) != 1:
+                raise ValueError("The only single component is acceptable.")
+            component = component[0]
+
+        repository = Repository(
+            name=name,
+            url=url + "/",
+            architecture=arch,
+            origin=origin,
+            section=(suite, component),
+            path=path
+        )
+        self._create_repository_structure(repository)
+        self.logger.info("Created: %d repository.", repository.name)
+        return repository
+
+    def load_package_from_file(self, repository, filename):
+        filepath = utils.get_path_from_url(repository.url + filename)
+        _, size, checksum = next(iter(utils.get_size_and_checksum_for_files(
+            [filepath], _checksum_collector)
+        ))
+        with closing(debfile.DebFile(filepath)) as deb:
+            debcontrol = deb822.Packages(
+                deb.control.get_content(debfile.CONTROL_FILE)
+            )
+
+        return Package(
+            repository=repository,
+            name=debcontrol["package"],
+            version=Version(debcontrol['version']),
+            filesize=int(debcontrol.get('size', size)),
+            filename=filename,
+            checksum=FileChecksum(*checksum),
+            mandatory=self._is_mandatory(debcontrol),
+            requires=self._get_relations(
+                debcontrol, "depends", "pre-depends",
+                "recommends"
+            ),
+            provides=self._get_relations(debcontrol, "provides"),
+            obsoletes=[]
+        )
+
+    def make_package_path(self, repository, url):
+        fname = os.path.basename(utils.get_path_from_url(url, False))
+        return "/".join(("pool", repository.section[1], fname[0], fname))
+
+    def _create_repository_structure(self, repository):
         packages_file = utils.get_path_from_url(
-            self._get_url_of_metafile(new_repo, "Packages")
+            self._get_url_of_metafile(repository, "Packages")
         )
         release_file = utils.get_path_from_url(
-            self._get_url_of_metafile(new_repo, "Release")
-        )
-        self.logger.info(
-            "clone repository %s to %s", repository, new_repo.url
+            self._get_url_of_metafile(repository, "Release")
         )
         utils.ensure_dir_exist(os.path.dirname(release_file))
 
         release = deb822.Release()
-        release["Origin"] = repository.origin
-        release["Label"] = repository.origin
-        release["Archive"] = repository.section[0]
-        release["Component"] = repository.section[1]
-        release["Architecture"] = _ARCHITECTURES[repository.architecture]
-        with open(release_file, "wb") as fd:
-            release.dump(fd)
+
+        self._create_release_file(release, repository, release_file)
 
         open(packages_file, "ab").close()
         gzip.open(packages_file + ".gz", "ab").close()
-        return new_repo
 
     def _update_suite_index(self, repository):
         """Updates the Release file in the suite."""
@@ -321,6 +377,22 @@ class DebRepositoryDriver(RepositoryDriverBase):
         ))
 
     @staticmethod
+    def _create_release_file(release, repository, release_file):
+        """Create release file to debian with repository information.
+
+        :param release: the deb822.Release instance
+        :param repository: the repository object
+        :param release_file: release file object
+        """
+        release["Origin"] = repository.origin
+        release["Label"] = repository.origin
+        release["Archive"] = repository.name[0]
+        release["Component"] = repository.name[1]
+        release["Architecture"] = _ARCHITECTURES[repository.architecture]
+        with open(release_file, "wb") as fd:
+            release.dump(fd)
+
+    @staticmethod
     def _add_to_release(release, repository):
         """Adds repository information to debian release.
 
@@ -375,4 +447,5 @@ class DebRepositoryDriver(RepositoryDriverBase):
                         m: checksum,
                         "size": size,
                         "name": fname
-                    }))
+                    })
+                    )
