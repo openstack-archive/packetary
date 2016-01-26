@@ -17,9 +17,10 @@
 #    51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 
 from packetary.cli.commands.base import BaseProduceOutputCommand
+from packetary.cli.commands.base import RepositoriesMixin
 
 
-class ListOfUnresolved(BaseProduceOutputCommand):
+class ListOfUnresolved(RepositoriesMixin, BaseProduceOutputCommand):
     """Gets the list of external dependencies for repository(es)."""
 
     columns = (
