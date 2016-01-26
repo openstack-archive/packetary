@@ -36,6 +36,7 @@ from packetary.objects import PackageRelation
 from packetary.objects import PackageVersion
 from packetary.objects import Repository
 from packetary.objects import VersionRange
+from packetary.schemas import RPM_REPO_SCHEMA
 
 
 urljoin = six.moves.urllib.parse.urljoin
@@ -86,6 +87,9 @@ class CreaterepoCallBack(object):
 
 
 class RpmRepositoryDriver(RepositoryDriverBase):
+    def get_repository_data_schema(self):
+        return RPM_REPO_SCHEMA
+
     def priority_sort(self, repo_data):
         # DEB repository expects general values from 0 to 1000. 0
         # to have lowest priority and 1000 -- the highest. Note that a
@@ -99,7 +103,7 @@ class RpmRepositoryDriver(RepositoryDriverBase):
     def get_repository(self, connection, repository_data, arch, consumer):
         consumer(Repository(
             name=repository_data['name'],
-            url=utils.normalize_repository_url(repository_data["url"]),
+            url=utils.normalize_repository_url(repository_data["uri"]),
             architecture=arch,
             origin=""
         ))
@@ -195,7 +199,7 @@ class RpmRepositoryDriver(RepositoryDriverBase):
     def create_repository(self, repository_data, arch):
         repository = Repository(
             name=repository_data['name'],
-            url=utils.normalize_repository_url(repository_data["url"]),
+            url=utils.normalize_repository_url(repository_data["uri"]),
             architecture=arch,
             origin=repository_data.get('origin')
         )
