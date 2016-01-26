@@ -31,9 +31,14 @@ class TestRepositoryApi(base.TestCase):
     def setUp(self):
         self.controller = CallbacksAdapter()
         self.api = RepositoryApi(self.controller)
-        self.repo_data = {"name": "repo1", "url": "file:///repo1"}
+        self.repo_data = {"name": "repo1", "uri": "file:///repo1"}
+        self.requirements_data = [
+            {"name": "test1"}, {"name": "test2", "versions": ["< 3", "> 1"]}
+        ]
+        self.schema = {}
         self.repo = generator.gen_repository(**self.repo_data)
         self.controller.load_repositories.return_value = [self.repo]
+        self.controller.get_repository_data_scheme.return_value = {}
         self._generate_packages()
 
     def _generate_packages(self):
@@ -104,6 +109,7 @@ class TestRepositoryApi(base.TestCase):
             packages
         )
 
+    @mock.patch("packetary.api.PACKAGES_SCHEMA", {})
     def test_get_packages_by_requirements_with_mandatory(self):
         packages = self.api.get_packages(
             [self.repo_data], [{"name": "package1"}], True
@@ -114,6 +120,7 @@ class TestRepositoryApi(base.TestCase):
             (x.name for x in packages)
         )
 
+    @mock.patch("packetary.api.PACKAGES_SCHEMA", {})
     def test_get_packages_by_requirements_without_mandatory(self):
         packages = self.api.get_packages(
             [self.repo_data], [{"name": "package4"}], False
@@ -140,6 +147,7 @@ class TestRepositoryApi(base.TestCase):
         self.assertEqual(6, stats.total)
         self.assertEqual(4, stats.copied)
 
+    @mock.patch("packetary.api.PACKAGES_SCHEMA", {})
     def test_clone_by_requirements_with_mandatory(self):
         # return value is used as statistics
         mirror = copy.copy(self.repo)
@@ -160,6 +168,7 @@ class TestRepositoryApi(base.TestCase):
         self.assertEqual(3, stats.total)
         self.assertEqual(2, stats.copied)
 
+    @mock.patch("packetary.api.PACKAGES_SCHEMA", {})
     def test_clone_by_requirements_without_mandatory(self):
         # return value is used as statistics
         mirror = copy.copy(self.repo)
@@ -184,6 +193,7 @@ class TestRepositoryApi(base.TestCase):
         unresolved = self.api.get_unresolved_dependencies([self.repo_data])
         self.assertItemsEqual(["package6"], (x.name for x in unresolved))
 
+    @mock.patch("packetary.api.PACKAGES_SCHEMA", {})
     def test_load_requirements(self):
         expected = {
             generator.gen_relation("test1"),
@@ -197,12 +207,28 @@ class TestRepositoryApi(base.TestCase):
         self.assertIsNone(self.api._load_requirements(None))
 
     def test_validate_repo_data(self):
-        # TODO(bgaifullin) implement me
-        pass
+        self.api.validate_data = mock.MagicMock()
+        self.api._validate_repo_data(self.repo_data)
+        self.api.validate_data.assert_called_once_with(
+            self.repo_data, self.schema
+        )
 
+    @mock.patch("packetary.api.PACKAGES_SCHEMA", {})
     def test_validate_requirements_data(self):
-        # TODO(bgaifullin) implement me
-        pass
+        self.api.validate_data = mock.MagicMock()
+        self.api._validate_requirements_data(self.requirements_data)
+        self.api.validate_data.assert_called_once_with(
+            self.requirements_data, self.schema
+        )
+
+    @mock.patch("packetary.api.jsonschema")
+    def test_validate_data(self, jsonschema_mock):
+        repo_data = {"name": "test", "uri": "file:///test1"}
+        schema = {}
+        self.api.validate_data(repo_data, schema)
+        jsonschema_mock.validate.assert_called_with(
+            repo_data, schema
+        )
 
 
 class TestContext(base.TestCase):

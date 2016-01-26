@@ -23,6 +23,7 @@ import sys
 import six
 
 from packetary.objects import FileChecksum
+from packetary.schemas import RPM_REPO_SCHEMA
 from packetary.tests import base
 from packetary.tests.stubs.generator import gen_repository
 from packetary.tests.stubs.helpers import get_compressed
@@ -68,7 +69,7 @@ class TestRpmDriver(base.TestCase):
 
     def test_get_repository(self):
         repos = []
-        repo_data = {"name": "os", "url": "http://host/centos/os/x86_64/"}
+        repo_data = {"name": "os", "uri": "http://host/centos/os/x86_64/"}
         self.driver.get_repository(
             self.connection,
             repo_data,
@@ -220,13 +221,13 @@ class TestRpmDriver(base.TestCase):
     @mock.patch("packetary.drivers.rpm_driver.utils.ensure_dir_exist")
     def test_create_repository(self, ensure_dir_exists_mock):
         repository_data = {
-            "name": "Test", "url": "file:///repo/os/x86_64", "origin": "Test"
+            "name": "Test", "uri": "file:///repo/os/x86_64", "origin": "Test"
         }
         repo = self.driver.create_repository(repository_data, "x86_64")
         ensure_dir_exists_mock.assert_called_once_with("/repo/os/x86_64/")
         self.assertEqual(repository_data["name"], repo.name)
         self.assertEqual("x86_64", repo.architecture)
-        self.assertEqual(repository_data["url"] + "/", repo.url)
+        self.assertEqual(repository_data["uri"] + "/", repo.url)
         self.assertEqual(repository_data["origin"], repo.origin)
 
     @mock.patch("packetary.drivers.rpm_driver.utils")
@@ -278,3 +279,7 @@ class TestRpmDriver(base.TestCase):
         )
         rel_path = self.driver.get_relative_path(repo, "test.pkg")
         self.assertEqual("packages/test.pkg", rel_path)
+
+    def test_get_repository_data_scheme(self):
+        schema = self.driver.get_repository_data_scheme()
+        self.assertEqual(RPM_REPO_SCHEMA, schema)

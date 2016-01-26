@@ -19,6 +19,7 @@
 from collections import defaultdict
 import logging
 
+import jsonschema
 import six
 
 from packetary.controllers import RepositoryController
@@ -28,6 +29,7 @@ from packetary.objects import PackageRelation
 from packetary.objects import PackagesForest
 from packetary.objects import PackagesTree
 from packetary.objects.statistics import CopyStatistics
+from packetary.schemas import PACKAGES_SCHEMA
 
 
 logger = logging.getLogger(__package__)
@@ -185,6 +187,25 @@ class RepositoryApi(object):
         self._load_packages(self._load_repositories(repos_data), packages.add)
         return packages.get_unresolved_dependencies()
 
+    def validate_data(self, data, schema):
+        """Validate the input data using jsonschema validation.
+
+        :param data: a data to validate represented as a dict
+        :param schema: a schema to validate represented as a dict;
+                       must be in JSON Schema Draft 4 format.
+        """
+        try:
+            jsonschema.validate(data, schema)
+        except jsonschema.ValidationError as ex:
+            if len(ex.path) > 0:
+                join_ex_path = '.'.join(six.text_type(x) for x in ex.path)
+                detail = ("Invalid input for field/attribute {0}."
+                          " Value: {1}. {2}").format(join_ex_path,
+                                                     ex.instance, ex.message)
+            else:
+                detail = ex.message
+            raise ValueError(detail)
+
     def _get_packages(self, repos, requirements, include_mandatory):
         if requirements is not None:
             forest = PackagesForest()
@@ -212,7 +233,6 @@ class RepositoryApi(object):
         self._validate_requirements_data(requirements_data)
         result = []
         for r in requirements_data:
-            self._validate_requirements_data(r)
             versions = r.get('versions', None)
             if versions is None:
                 result.append(PackageRelation.from_args((r['name'],)))
@@ -224,9 +244,8 @@ class RepositoryApi(object):
         return result
 
     def _validate_repo_data(self, repo_data):
-        # TODO(bgaifullin) implement me
-        pass
+        schema = self.controller.get_repository_data_scheme()
+        self.validate_data(repo_data, schema)
 
     def _validate_requirements_data(self, requirements_data):
-        # TODO(bgaifullin) implement me
-        pass
+        self.validate_data(requirements_data, PACKAGES_SCHEMA)
