@@ -31,9 +31,15 @@ class TestRepositoryApi(base.TestCase):
     def setUp(self):
         self.controller = CallbacksAdapter()
         self.api = RepositoryApi(self.controller)
-        self.repo_data = {"name": "repo1", "url": "file:///repo1"}
+        self.repo_data = {"name": "repo1", "uri": "file:///repo1"}
+        self.requirements_data = [
+            {"name": "test1"}, {"name": "test2", "versions": ["< 3", "> 1"]}
+        ]
+        self.schema = {}
         self.repo = generator.gen_repository(**self.repo_data)
         self.controller.load_repositories.return_value = [self.repo]
+        self.controller.driver.get_repository_data_scheme.\
+            return_value = self.schema
         self._generate_packages()
 
     def _generate_packages(self):
@@ -196,13 +202,19 @@ class TestRepositoryApi(base.TestCase):
         self.assertEqual(expected, actual)
         self.assertIsNone(self.api._load_requirements(None))
 
-    def test_validate_repo_data(self):
-        # TODO(bgaifullin) implement me
-        pass
+    def test_validate_repos_data(self):
+        self.api._validate_repo_data(self.repo_data)
+        self.controller.validate_data.assert_called_once_with(
+            self.repo_data, self.schema
+        )
 
-    def test_validate_requirements_data(self):
-        # TODO(bgaifullin) implement me
-        pass
+    @mock.patch("packetary.api.PACKAGES_SCHEMA")
+    def test_validate_requirements_data(self, schema):
+        schema.return_value = self.schema
+        self.api._validate_requirements_data(self.requirements_data)
+        self.controller.validate_data.assert_called_once_with(
+            self.requirements_data
+        )
 
 
 class TestContext(base.TestCase):
