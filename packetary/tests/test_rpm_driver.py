@@ -70,7 +70,7 @@ class TestRpmDriver(base.TestCase):
 
     def test_get_repository(self):
         repos = []
-        repo_data = {"name": "os", "url": "http://host/centos/os/x86_64/"}
+        repo_data = {"name": "os", "uri": "http://host/centos/os/x86_64/"}
         self.driver.get_repository(
             self.connection,
             repo_data,
