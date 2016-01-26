@@ -53,7 +53,7 @@ class TestRepositoryController(base.TestCase):
         self.assertIs(self.driver, controller.driver)
 
     def test_load_repositories(self):
-        repo_data = {"name": "test", "url": "file:///test1"}
+        repo_data = {"name": "test", "uri": "file:///test1"}
         repo = gen_repository(**repo_data)
         self.driver.get_repository = CallbacksAdapter()
         self.driver.get_repository.side_effect = [repo]
@@ -150,7 +150,7 @@ class TestRepositoryController(base.TestCase):
 
     def test_create_repository(self):
         repository_data = {
-            "name": "Test", "url": "file:///repo/",
+            "name": "Test", "uri": "file:///repo/",
             "section": ("trusty", "main"), "origin": "Test"
         }
         repo = gen_repository(**repository_data)
@@ -175,4 +175,13 @@ class TestRepositoryController(base.TestCase):
         )
         self.driver.add_packages.assert_called_once_with(
             self.ctrl.context.connection, repo, set(packages)
+        )
+
+    @mock.patch("packetary.controllers.repository.jsonschema")
+    def test_validate_data(self, jsonschema):
+        repo_data = {"name": "test", "uri": "file:///test1"}
+        schema = {}
+        self.ctrl.validate_data(repo_data, schema)
+        jsonschema.validate.assert_called_with(
+            repo_data, schema
         )
