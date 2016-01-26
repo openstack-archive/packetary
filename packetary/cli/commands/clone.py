@@ -18,9 +18,10 @@
 
 from packetary.cli.commands.base import BaseRepoCommand
 from packetary.cli.commands.base import PackagesMixin
+from packetary.cli.commands.base import RepositoriesMixin
 
 
-class CloneCommand(PackagesMixin, BaseRepoCommand):
+class CloneCommand(PackagesMixin, RepositoriesMixin, BaseRepoCommand):
     """Clones the specified repository to local folder."""
 
     def get_parser(self, prog_name):

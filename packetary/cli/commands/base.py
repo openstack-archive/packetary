@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-#    Copyright 2015 Mirantis, Inc.
+#    Copyright 2016 Mirantis, Inc.
 #
 #    This program is free software; you can redistribute it and/or modify
 #    it under the terms of the GNU General Public License as published by
@@ -56,16 +56,6 @@ class BaseRepoCommand(command.Command):
             default="x86_64",
             help='The target architecture.')
 
-        parser.add_argument(
-            '-r', '--repositories',
-            dest='repositories',
-            type=read_from_file,
-            metavar='FILENAME',
-            required=True,
-            help="The path to file with list of repositories."
-                 "See documentation about format."
-        )
-
         return parser
 
     def take_action(self, parsed_args):
@@ -90,6 +80,22 @@ class BaseRepoCommand(command.Command):
         :param parsed_args: the command-line arguments
         :return: the action result
         """
+
+
+class RepositoriesMixin(object):
+    def get_parser(self, prog_name):
+        """Specifies common options."""
+        parser = super(RepositoriesMixin, self).get_parser(prog_name)
+        parser.add_argument(
+            '-r', '--repositories',
+            dest='repositories',
+            type=read_from_file,
+            metavar='FILENAME',
+            required=True,
+            help="The path to file with list of repositories."
+                 "See documentation about format."
+        )
+        return parser
 
 
 class PackagesMixin(object):
