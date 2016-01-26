@@ -19,21 +19,31 @@
 import copy
 import mock
 
+import jsonschema
+
 from packetary.api import Configuration
 from packetary.api import Context
 from packetary.api import RepositoryApi
+from packetary.schemas import PACKAGE_FILES_SCHEMA
+from packetary.schemas import PACKAGES_SCHEMA
 from packetary.tests import base
 from packetary.tests.stubs import generator
 from packetary.tests.stubs.helpers import CallbacksAdapter
 
 
+@mock.patch("packetary.api.jsonschema")
 class TestRepositoryApi(base.TestCase):
     def setUp(self):
         self.controller = CallbacksAdapter()
         self.api = RepositoryApi(self.controller)
-        self.repo_data = {"name": "repo1", "url": "file:///repo1"}
+        self.repo_data = {"name": "repo1", "uri": "file:///repo1"}
+        self.requirements_data = [
+            {"name": "test1"}, {"name": "test2", "versions": ["< 3", "> 1"]}
+        ]
+        self.schema = {}
         self.repo = generator.gen_repository(**self.repo_data)
         self.controller.load_repositories.return_value = [self.repo]
+        self.controller.get_repository_data_schema.return_value = self.schema
         self._generate_packages()
 
     def _generate_packages(self):
@@ -56,7 +66,8 @@ class TestRepositoryApi(base.TestCase):
 
     @mock.patch("packetary.api.RepositoryController")
     @mock.patch("packetary.api.ConnectionsManager")
-    def test_create_with_config(self, connection_mock, controller_mock):
+    def test_create_with_config(self, connection_mock, controller_mock,
+                                jsonschema_mock):
         config = Configuration(
             http_proxy="http://localhost", https_proxy="https://localhost",
             retries_num=10, retry_interval=1, threads_num=8,
@@ -75,7 +86,8 @@ class TestRepositoryApi(base.TestCase):
 
     @mock.patch("packetary.api.RepositoryController")
     @mock.patch("packetary.api.ConnectionsManager")
-    def test_create_with_context(self, connection_mock, controller_mock):
+    def test_create_with_context(self, connection_mock, controller_mock,
+                                 jsonschema_mock):
         config = Configuration(
             http_proxy="http://localhost", https_proxy="https://localhost",
             retries_num=10, retry_interval=1, threads_num=8,
@@ -93,42 +105,67 @@ class TestRepositoryApi(base.TestCase):
             context, "deb", "x86_64"
         )
 
-    def test_create_repository(self):
+    def test_create_repository(self, jsonschema_mock):
         file_urls = ["file://test1.pkg"]
         self.api.create_repository(self.repo_data, file_urls)
         self.controller.create_repository.assert_called_once_with(
             self.repo_data, file_urls
         )
+        jsonschema_mock.validate.assert_has_calls(
+            [
+                mock.call(self.repo_data, self.schema),
+                mock.call(file_urls, PACKAGE_FILES_SCHEMA),
+            ]
+        )
 
-    def test_get_packages_as_is(self):
+    def test_get_packages_as_is(self, jsonschema_mock):
         packages = self.api.get_packages([self.repo_data], None)
         self.assertEqual(5, len(packages))
         self.assertItemsEqual(
             self.packages,
             packages
         )
+        jsonschema_mock.validate.assert_called_once_with(
+            self.repo_data, self.schema
+        )
 
-    def test_get_packages_by_requirements_with_mandatory(self):
+    def test_get_packages_by_requirements_with_mandatory(self,
+                                                         jsonschema_mock):
+        requirements = [{"name": "package1"}]
         packages = self.api.get_packages(
-            [self.repo_data], [{"name": "package1"}], True
+            [self.repo_data], requirements, True
         )
         self.assertEqual(3, len(packages))
         self.assertItemsEqual(
             ["package1", "package2", "package3"],
             (x.name for x in packages)
         )
+        jsonschema_mock.validate.assert_has_calls(
+            [
+                mock.call(self.repo_data, self.schema),
+                mock.call(requirements, PACKAGES_SCHEMA),
+            ]
+        )
 
-    def test_get_packages_by_requirements_without_mandatory(self):
+    def test_get_packages_by_requirements_without_mandatory(self,
+                                                            jsonschema_mock):
+        requirements = [{"name": "package4"}]
         packages = self.api.get_packages(
-            [self.repo_data], [{"name": "package4"}], False
+            [self.repo_data], requirements, False
         )
         self.assertEqual(2, len(packages))
         self.assertItemsEqual(
             ["package1", "package4"],
             (x.name for x in packages)
         )
+        jsonschema_mock.validate.assert_has_calls(
+            [
+                mock.call(self.repo_data, self.schema),
+                mock.call(requirements, PACKAGES_SCHEMA),
+            ]
+        )
 
-    def test_clone_repositories_as_is(self):
+    def test_clone_repositories_as_is(self, jsonschema_mock):
         # return value is used as statistics
         mirror = copy.copy(self.repo)
         mirror.url = "file:///mirror/repo"
@@ -143,15 +180,19 @@ class TestRepositoryApi(base.TestCase):
         )
         self.assertEqual(6, stats.total)
         self.assertEqual(4, stats.copied)
+        jsonschema_mock.validate.assert_called_once_with(
+            self.repo_data, self.schema
+        )
 
-    def test_clone_by_requirements_with_mandatory(self):
+    def test_clone_by_requirements_with_mandatory(self, jsonschema_mock):
         # return value is used as statistics
         mirror = copy.copy(self.repo)
         mirror.url = "file:///mirror/repo"
+        requirements = [{"name": "package1"}]
         self.controller.fork_repository.return_value = mirror
         self.controller.assign_packages.return_value = [0, 1, 1]
         stats = self.api.clone_repositories(
-            [self.repo_data], [{"name": "package1"}],
+            [self.repo_data], requirements,
             "/mirror", include_mandatory=True
         )
         packages = {self.packages[0], self.packages[1], self.packages[2]}
@@ -163,15 +204,23 @@ class TestRepositoryApi(base.TestCase):
         )
         self.assertEqual(3, stats.total)
         self.assertEqual(2, stats.copied)
+        jsonschema_mock.validate.assert_has_calls(
+            [
+                mock.call(self.repo_data, self.schema),
+                mock.call(requirements, PACKAGES_SCHEMA),
+            ]
+        )
 
-    def test_clone_by_requirements_without_mandatory(self):
+    def test_clone_by_requirements_without_mandatory(self,
+                                                     jsonschema_mock):
         # return value is used as statistics
         mirror = copy.copy(self.repo)
         mirror.url = "file:///mirror/repo"
+        requirements = [{"name": "package4"}]
         self.controller.fork_repository.return_value = mirror
         self.controller.assign_packages.return_value = [0, 4]
         stats = self.api.clone_repositories(
-            [self.repo_data], [{"name": "package4"}],
+            [self.repo_data], requirements,
             "/mirror", include_mandatory=False
         )
         packages = {self.packages[0], self.packages[3]}
@@ -183,30 +232,65 @@ class TestRepositoryApi(base.TestCase):
         )
         self.assertEqual(2, stats.total)
         self.assertEqual(1, stats.copied)
+        jsonschema_mock.validate.assert_has_calls(
+            [
+                mock.call(self.repo_data, self.schema),
+                mock.call(requirements, PACKAGES_SCHEMA),
+            ]
+        )
 
-    def test_get_unresolved(self):
+    def test_get_unresolved(self, jsonschema_mock):
         unresolved = self.api.get_unresolved_dependencies([self.repo_data])
         self.assertItemsEqual(["package6"], (x.name for x in unresolved))
+        jsonschema_mock.validate.assert_called_once_with(
+            self.repo_data, self.schema
+        )
 
-    def test_load_requirements(self):
+    def test_load_requirements(self, jsonschema_mock):
         expected = {
             generator.gen_relation("test1"),
             generator.gen_relation("test2", ["<", "3"]),
             generator.gen_relation("test2", [">", "1"]),
         }
         actual = set(self.api._load_requirements(
-            [{"name": "test1"}, {"name": "test2", "versions": ["< 3", "> 1"]}]
+            self.requirements_data
         ))
         self.assertEqual(expected, actual)
         self.assertIsNone(self.api._load_requirements(None))
+        jsonschema_mock.validate.assert_called_once_with(
+            self.requirements_data,
+            PACKAGES_SCHEMA
+        )
 
-    def test_validate_repo_data(self):
-        # TODO(bgaifullin) implement me
-        pass
+    def test_validate_data(self, jsonschema_mock):
+        self.api._validate_data(self.repo_data, self.schema)
+        jsonschema_mock.validate.assert_called_once_with(
+            self.repo_data, self.schema
+        )
 
-    def test_validate_requirements_data(self):
-        # TODO(bgaifullin) implement me
-        pass
+    def test_validate_invalid_data(self, jschema_m):
+        jschema_m.ValidationError = jsonschema.ValidationError
+        jschema_m.SchemaError = jsonschema.SchemaError
+
+        paths = [("a", "b"), ()]
+        for path in paths:
+            msg = "Invalid data: error."
+            details = "\nField: {0}".format(".".join(path)) if path else ""
+            with self.assertRaisesRegexp(ValueError, msg + details):
+                jschema_m.validate.side_effect = jsonschema.ValidationError(
+                    "error", path=path
+                )
+                self.api._validate_data([], {})
+            jschema_m.validate.assert_called_with([], {})
+            jschema_m.validate.reset_mock()
+
+            msg = "Invalid schema: error."
+            with self.assertRaisesRegexp(ValueError, msg + details):
+                jschema_m.validate.side_effect = jsonschema.SchemaError(
+                    "error", schema_path=path
+                )
+                self.api._validate_data([], {})
+            jschema_m.validate.assert_called_with([], {})
 
 
 class TestContext(base.TestCase):

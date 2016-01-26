@@ -19,6 +19,7 @@
 from collections import defaultdict
 import logging
 
+import jsonschema
 import six
 
 from packetary.controllers import RepositoryController
@@ -28,7 +29,8 @@ from packetary.objects import PackageRelation
 from packetary.objects import PackagesForest
 from packetary.objects import PackagesTree
 from packetary.objects.statistics import CopyStatistics
-
+from packetary.schemas import PACKAGE_FILES_SCHEMA
+from packetary.schemas import PACKAGES_SCHEMA
 
 logger = logging.getLogger(__package__)
 
@@ -122,6 +124,7 @@ class RepositoryApi(object):
         :param package_files: The list of URLs of packages
         """
         self._validate_repo_data(repo_data)
+        self._validate_package_files(package_files)
         return self.controller.create_repository(repo_data, package_files)
 
     def get_packages(self, repos_data, requirements_data=None,
@@ -215,7 +218,6 @@ class RepositoryApi(object):
         self._validate_requirements_data(requirements_data)
         result = []
         for r in requirements_data:
-            self._validate_requirements_data(r)
             versions = r.get('versions', None)
             if versions is None:
                 result.append(PackageRelation.from_args((r['name'],)))
@@ -227,9 +229,34 @@ class RepositoryApi(object):
         return result
 
     def _validate_repo_data(self, repo_data):
-        # TODO(bgaifullin) implement me
-        pass
+        schema = self.controller.get_repository_data_schema()
+        self._validate_data(repo_data, schema)
 
     def _validate_requirements_data(self, requirements_data):
-        # TODO(bgaifullin) implement me
-        pass
+        self._validate_data(requirements_data, PACKAGES_SCHEMA)
+
+    def _validate_package_files(self, package_files):
+        self._validate_data(package_files, PACKAGE_FILES_SCHEMA)
+
+    def _validate_data(self, data, schema):
+        """Validate the input data using jsonschema validation.
+
+        :param data: a data to validate represented as a dict
+        :param schema: a schema to validate represented as a dict;
+                       must be in JSON Schema Draft 4 format.
+        """
+        try:
+            jsonschema.validate(data, schema)
+        except jsonschema.ValidationError as e:
+            self._raise_validation_error("data", e.message, e.absolute_path)
+        except jsonschema.SchemaError as e:
+            self._raise_validation_error(
+                "schema", e.message, e.absolute_schema_path
+            )
+
+    @staticmethod
+    def _raise_validation_error(what, details, path):
+        message = "Invalid {0}: {1}.".format(what, details)
+        if path:
+            message = "\n".join((message, "Field: {0}".format(".".join(path))))
+        raise ValueError(message)

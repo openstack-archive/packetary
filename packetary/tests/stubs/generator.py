@@ -22,6 +22,7 @@ from packetary import objects
 def gen_repository(name="test", url="file:///test",
                    architecture="x86_64", origin="Test", **kwargs):
     """Helper to create Repository object with default attributes."""
+    url = kwargs.pop("uri", url)
     return objects.Repository(name, url, architecture, origin, **kwargs)
 
 
