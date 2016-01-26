@@ -28,6 +28,7 @@ from packetary.objects import PackageRelation
 from packetary.objects import PackagesForest
 from packetary.objects import PackagesTree
 from packetary.objects.statistics import CopyStatistics
+from packetary.schemas import PACKAGES_SCHEMA
 
 
 logger = logging.getLogger(__package__)
@@ -212,7 +213,6 @@ class RepositoryApi(object):
         self._validate_requirements_data(requirements_data)
         result = []
         for r in requirements_data:
-            self._validate_requirements_data(r)
             versions = r.get('versions', None)
             if versions is None:
                 result.append(PackageRelation.from_args((r['name'],)))
@@ -224,9 +224,8 @@ class RepositoryApi(object):
         return result
 
     def _validate_repo_data(self, repo_data):
-        # TODO(bgaifullin) implement me
-        pass
+        schema = self.controller.driver.get_repository_data_scheme()
+        self.controller.validate_data(repo_data, schema)
 
     def _validate_requirements_data(self, requirements_data):
-        # TODO(bgaifullin) implement me
-        pass
+        self.controller.validate_data(requirements_data, PACKAGES_SCHEMA)
