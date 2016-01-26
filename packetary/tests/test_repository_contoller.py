@@ -135,3 +135,12 @@ class TestRepositoryController(base.TestCase):
         observer = mock.MagicMock()
         self.ctrl._copy_packages(repo, packages, observer)
         self.assertFalse(self.context.connection.retrieve.called)
+
+    @mock.patch("packetary.controllers.repository.jsonschema")
+    def test_validate_data(self, jsonschema):
+        repo_data = {"name": "test", "url": "file:///test1"}
+        schema = {}
+        self.ctrl.validate_data(repo_data, schema)
+        jsonschema.validate.assert_called_with(
+            repo_data, schema
+        )

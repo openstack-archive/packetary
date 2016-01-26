@@ -36,6 +36,7 @@ from packetary.objects import FileChecksum
 from packetary.objects import Package
 from packetary.objects import PackageRelation
 from packetary.objects import Repository
+from packetary.schemas import DEB_REPO_SCHEMA
 
 
 _OPERATORS_MAPPING = {
@@ -83,6 +84,9 @@ _checksum_collector = checksum_composite('md5', 'sha1', 'sha256')
 
 
 class DebRepositoryDriver(RepositoryDriverBase):
+    def get_repository_data_scheme(self):
+        return DEB_REPO_SCHEMA
+
     def priority_sort(self, repo_data):
         # DEB repository expects general values from 0 to 1000. 0
         # to have lowest priority and 1000 -- the highest. Note that a
