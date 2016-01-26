@@ -16,39 +16,32 @@
 #    with this program; if not, write to the Free Software Foundation, Inc.,
 #    51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 
-from packetary.cli.commands.base import BaseProduceOutputCommand
-from packetary.cli.commands.base import PackagesMixin
-from packetary.cli.commands.base import RepositoriesMixin
+
+from packetary.cli.commands.base import BaseRepoCommand
+from packetary.cli.commands.base import PackageFilesMixin
+from packetary.cli.commands.base import RepositoryMixin
 
 
-class ListOfPackages(
-    PackagesMixin, RepositoriesMixin, BaseProduceOutputCommand):
-    """Gets the list of packages from repository(es)."""
+class CreateCommand(RepositoryMixin, PackageFilesMixin, BaseRepoCommand):
+    """Creates the new repository."""
 
-    columns = (
-        "name",
-        "repository",
-        "version",
-        "filename",
-        "filesize",
-        "checksum",
-        "obsoletes",
-        "provides",
-        "requires",
-    )
+    def get_parser(self, prog_name):
+        parser = super(CreateCommand, self).get_parser(prog_name)
+
+        return parser
 
     def take_repo_action(self, api, parsed_args):
-        return api.get_packages(
-            parsed_args.repositories,
-            parsed_args.requirements,
-            parsed_args.include_mandatory
+        api.create_repository(
+            parsed_args.repository,
+            parsed_args.package_files
         )
+        self.stdout.write("Successfully create repository.")
 
 
 def debug(argv=None):
-    """Helper to debug the ListOfPackages command."""
+    """Helper to debug the Create command."""
     from packetary.cli.app import debug
-    debug("packages", ListOfPackages, argv)
+    debug("create", CreateCommand, argv)
 
 
 if __name__ == "__main__":

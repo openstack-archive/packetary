@@ -56,16 +56,6 @@ class BaseRepoCommand(command.Command):
             default="x86_64",
             help='The target architecture.')
 
-        parser.add_argument(
-            '-r', '--repositories',
-            dest='repositories',
-            type=read_from_file,
-            metavar='FILENAME',
-            required=True,
-            help="The path to file with list of repositories."
-                 "See documentation about format."
-        )
-
         return parser
 
     def take_action(self, parsed_args):
@@ -92,6 +82,22 @@ class BaseRepoCommand(command.Command):
         """
 
 
+class RepositoriesMixin(object):
+    def get_parser(self, prog_name):
+        """Specifies common options."""
+        parser = super(RepositoriesMixin, self).get_parser(prog_name)
+        parser.add_argument(
+            '-r', '--repositories',
+            dest='repositories',
+            type=read_from_file,
+            metavar='FILENAME',
+            required=True,
+            help="The path to file with list of repositories."
+                 "See documentation about format."
+        )
+        return parser
+
+
 class PackagesMixin(object):
     """Added arguments to declare list of packages."""
 
@@ -111,6 +117,39 @@ class PackagesMixin(object):
             type=read_from_file,
             metavar='FILENAME',
             help="The path to file with list of packages."
+                 "See documentation about format."
+        )
+        return parser
+
+
+class RepositoryMixin(object):
+    """Added arguments to declare list of packages."""
+
+    def get_parser(self, prog_name):
+        parser = super(RepositoryMixin, self).get_parser(prog_name)
+        parser.add_argument(
+            '--repository',
+            dest='repository',
+            type=read_from_file,
+            metavar='FILENAME',
+            required=True,
+            help="The path to file with list of repositories."
+                 "See documentation about format."
+        )
+
+        return parser
+
+
+class PackageFilesMixin(object):
+    def get_parser(self, prog_name):
+        parser = super(PackageFilesMixin, self).get_parser(prog_name)
+        parser.add_argument(
+            '--package-files',
+            dest='package_files',
+            type=read_from_file,
+            metavar='FILENAME',
+            required=True,
+            help="The path to file with list of repositories."
                  "See documentation about format."
         )
         return parser
