@@ -60,7 +60,7 @@ class TestDebDriver(base.TestCase):
     def test_get_repository(self):
         repos = []
         repo_data = {
-            "name": "repo1", "url": "http://host", "suite": "trusty",
+            "name": "repo1", "uri": "http://host", "suite": "trusty",
             "section": ["main", "universe"], "path": "my_path"
         }
         self.connection.open_stream.return_value = {"Origin": "Ubuntu"}
@@ -95,7 +95,7 @@ class TestDebDriver(base.TestCase):
         with self.assertRaisesRegexp(ValueError, "does not supported"):
             self.driver.get_repository(
                 self.connection,
-                {"url": "http://host", "suite": "trusty"},
+                {"uri": "http://host", "suite": "trusty"},
                 "x86_64",
                 lambda x: None
             )
