@@ -21,6 +21,7 @@ import os.path as path
 import six
 
 from packetary.drivers import deb_driver
+from packetary.schemas import DEB_REPO_SCHEMA
 from packetary.tests import base
 from packetary.tests.stubs.generator import gen_package
 from packetary.tests.stubs.generator import gen_repository
@@ -66,7 +67,7 @@ class TestDebDriver(base.TestCase):
     def test_get_repository(self):
         repos = []
         repo_data = {
-            "name": "repo1", "url": "http://host", "suite": "trusty",
+            "name": "repo1", "uri": "http://host", "suite": "trusty",
             "section": ["main", "universe"], "path": "my_path"
         }
         self.connection.open_stream.return_value = {"Origin": "Ubuntu"}
@@ -99,7 +100,7 @@ class TestDebDriver(base.TestCase):
 
     def test_get_repository_if_release_does_not_exist(self):
         repo_data = {
-            "name": "repo1", "url": "http://host", "suite": "trusty",
+            "name": "repo1", "uri": "http://host", "suite": "trusty",
             "section": ["main"], "path": "my_path"
         }
         repos = []
@@ -115,7 +116,7 @@ class TestDebDriver(base.TestCase):
 
     def test_get_repository_fail_if_error(self):
         repo_data = {
-            "name": "repo1", "url": "http://host", "suite": "trusty",
+            "name": "repo1", "uri": "http://host", "suite": "trusty",
             "section": ["main"], "path": "my_path"
         }
         repos = []
@@ -132,7 +133,7 @@ class TestDebDriver(base.TestCase):
         with self.assertRaisesRegexp(ValueError, "does not supported"):
             self.driver.get_repository(
                 self.connection,
-                {"url": "http://host", "suite": "trusty"},
+                {"uri": "http://host", "suite": "trusty"},
                 "x86_64",
                 lambda x: None
             )
@@ -313,14 +314,14 @@ class TestDebDriver(base.TestCase):
     @mock.patch("packetary.drivers.deb_driver.utils.ensure_dir_exist")
     def test_create_repository(self, mkdir_mock, deb822, gzip, open, os):
         repository_data = {
-            "name": "Test", "url": "file:///repo", "suite": "trusty",
+            "name": "Test", "uri": "file:///repo", "suite": "trusty",
             "section": "main", "type": "rpm", "priority": "100",
             "origin": "Origin", "path": "/repo"
         }
         repo = self.driver.create_repository(repository_data, "x86_64")
         self.assertEqual(repository_data["name"], repo.name)
         self.assertEqual("x86_64", repo.architecture)
-        self.assertEqual(repository_data["url"] + "/", repo.url)
+        self.assertEqual(repository_data["uri"] + "/", repo.url)
         self.assertEqual(repository_data["origin"], repo.origin)
         self.assertEqual(
             (repository_data["suite"], repository_data["section"]),
@@ -340,7 +341,7 @@ class TestDebDriver(base.TestCase):
 
     def test_createrepository_fails_if_invalid_data(self):
         repository_data = {
-            "name": "Test", "url": "file:///repo", "suite": "trusty",
+            "name": "Test", "uri": "file:///repo", "suite": "trusty",
             "type": "rpm", "priority": "100",
             "origin": "Origin", "path": "/repo"
         }
@@ -397,3 +398,7 @@ class TestDebDriver(base.TestCase):
         )
         rel_path = self.driver.get_relative_path(repo, "test.pkg")
         self.assertEqual("pool/main/t/test.pkg", rel_path)
+
+    def test_get_repository_data_scheme(self):
+        schema = self.driver.get_repository_data_scheme()
+        self.assertIs(DEB_REPO_SCHEMA, schema)
