@@ -16,24 +16,14 @@
 #    with this program; if not, write to the Free Software Foundation, Inc.,
 #    51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 
-try:
-    import unittest2 as unittest
-except ImportError:
-    import unittest
+from packetary.schemas.deb_repo_schema import DEB_REPO_SCHEMA
+from packetary.schemas.package_files_schema import PACKAGE_FILES_SCHEMA
+from packetary.schemas.packages_schema import PACKAGES_SCHEMA
+from packetary.schemas.rpm_repo_schema import RPM_REPO_SCHEMA
 
-
-class TestCase(unittest.TestCase):
-
-    """Test case base class for all unit tests."""
-
-    def _check_cases(self, assertion, cases, method):
-        for exp, value in cases:
-            assertion(
-                exp, method(*value), "{0} != f({1})".format(exp, value)
-            )
-
-    def assertNotRaises(self, exception, method, *args, **kwargs):
-        try:
-            method(*args, **kwargs)
-        except exception as e:
-            self.fail("Unexpected error: {0}".format(e))
+__all__ = [
+    "DEB_REPO_SCHEMA",
+    "PACKAGES_SCHEMA",
+    "RPM_REPO_SCHEMA",
+    "PACKAGE_FILES_SCHEMA"
+]

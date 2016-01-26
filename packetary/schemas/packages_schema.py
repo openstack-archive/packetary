@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-#    Copyright 2015 Mirantis, Inc.
+#    Copyright 2016 Mirantis, Inc.
 #
 #    This program is free software; you can redistribute it and/or modify
 #    it under the terms of the GNU General Public License as published by
@@ -16,24 +16,28 @@
 #    with this program; if not, write to the Free Software Foundation, Inc.,
 #    51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 
-try:
-    import unittest2 as unittest
-except ImportError:
-    import unittest
-
-
-class TestCase(unittest.TestCase):
-
-    """Test case base class for all unit tests."""
-
-    def _check_cases(self, assertion, cases, method):
-        for exp, value in cases:
-            assertion(
-                exp, method(*value), "{0} != f({1})".format(exp, value)
-            )
-
-    def assertNotRaises(self, exception, method, *args, **kwargs):
-        try:
-            method(*args, **kwargs)
-        except exception as e:
-            self.fail("Unexpected error: {0}".format(e))
+PACKAGES_SCHEMA = {
+    "$schema": "http://json-schema.org/draft-04/schema#",
+    "type": "array",
+    "items": {
+        "type": "object",
+        "required": [
+            "name",
+            "versions"
+        ],
+        "properties": {
+            "name": {
+                "type": "string"
+            },
+            "versions": {
+                "type": "array",
+                "items": [
+                    {
+                        "type": "string",
+                        "pattern": "^([<>]=?|=)\s+.+$"
+                    }
+                ]
+            }
+        }
+    }
+}
