@@ -53,7 +53,7 @@ class TestRepositoryController(base.TestCase):
         self.assertIs(self.driver, controller.driver)
 
     def test_load_repositories(self):
-        repo_data = {"name": "test", "url": "file:///test1"}
+        repo_data = {"name": "test", "uri": "file:///test1"}
         repo = gen_repository(**repo_data)
         self.driver.get_repository = CallbacksAdapter()
         self.driver.get_repository.side_effect = [repo]
@@ -150,7 +150,7 @@ class TestRepositoryController(base.TestCase):
 
     def test_create_repository(self):
         repository_data = {
-            "name": "Test", "url": "file:///repo/",
+            "name": "Test", "uri": "file:///repo/",
             "section": ("trusty", "main"), "origin": "Test"
         }
         repo = gen_repository(**repository_data)
