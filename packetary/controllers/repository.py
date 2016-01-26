@@ -137,6 +137,13 @@ class RepositoryController(object):
         self.assign_packages(repo, packages)
         return repo
 
+    def get_repository_data_scheme(self):
+        """Return jsonschema to validate data for required driver.
+
+        :return : Return a jsonschema represented as a dict
+        """
+        return self.driver.repository_data_schema()
+
     def _copy_packages(self, target, packages, observer):
         with self.context.async_section() as section:
             for package in packages:
