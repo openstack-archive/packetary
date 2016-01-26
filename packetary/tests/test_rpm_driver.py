@@ -68,7 +68,7 @@ class TestRpmDriver(base.TestCase):
 
     def test_get_repository(self):
         repos = []
-        repo_data = {"name": "os", "url": "http://host/centos/os/x86_64/"}
+        repo_data = {"name": "os", "uri": "http://host/centos/os/x86_64/"}
         self.driver.get_repository(
             self.connection,
             repo_data,
@@ -220,13 +220,13 @@ class TestRpmDriver(base.TestCase):
     @mock.patch("packetary.drivers.rpm_driver.utils.ensure_dir_exist")
     def test_create_repository(self, ensure_dir_exists_mock):
         repository_data = {
-            "name": "Test", "url": "file:///repo/os/x86_64", "origin": "Test"
+            "name": "Test", "uri": "file:///repo/os/x86_64", "origin": "Test"
         }
         repo = self.driver.create_repository(repository_data, "x86_64")
         ensure_dir_exists_mock.assert_called_once_with("/repo/os/x86_64/")
         self.assertEqual(repository_data["name"], repo.name)
         self.assertEqual("x86_64", repo.architecture)
-        self.assertEqual(repository_data["url"] + "/", repo.url)
+        self.assertEqual(repository_data["uri"] + "/", repo.url)
         self.assertEqual(repository_data["origin"], repo.origin)
 
     @mock.patch("packetary.drivers.rpm_driver.utils")
