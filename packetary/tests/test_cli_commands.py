@@ -26,12 +26,14 @@ subprocess.mswindows = False
 
 from packetary.api import RepositoryApi
 from packetary.cli.commands import clone
+from packetary.cli.commands import create
 from packetary.cli.commands import packages
 from packetary.cli.commands import unresolved
 from packetary.objects.statistics import CopyStatistics
 from packetary.tests import base
 from packetary.tests.stubs.generator import gen_package
 from packetary.tests.stubs.generator import gen_relation
+from packetary.tests.stubs.generator import gen_repository
 
 
 @mock.patch("packetary.cli.commands.base.BaseRepoCommand.stdout")
@@ -54,6 +56,11 @@ class TestCliCommands(base.TestCase):
         "-a", "x86_64",
         "--clean",
         "--skip-mandatory"
+    ]
+
+    create_argv = [
+        "--repository", "repository.yaml",
+        "--package-files", "package-files.yaml",
     ]
 
     packages_argv = [
@@ -144,4 +151,29 @@ class TestCliCommands(base.TestCase):
         self.assertIn(
             "test; any; -",
             stdout_mock.write.call_args_list[3][0][0]
+        )
+
+    @mock.patch("packetary.cli.commands.create.read_from_file")
+    def test_create_cmd(self, read_file_in_create_mock, api_mock,
+                        read_file_mock, stdout_mock):
+        read_file_in_create_mock.side_effect = [
+            [{"name": "repo"}],
+            ["/test1.deb", "/test2.deb", "/test3.deb"],
+        ]
+        api_instance = mock.MagicMock(spec=RepositoryApi)
+        api_mock.create.return_value = api_instance
+        api_instance.create_repository.return_value = gen_repository()
+        self.start_cmd(create, self.create_argv)
+        api_mock.create.assert_called_once_with(
+            mock.ANY, "deb", "x86_64"
+        )
+        self.check_common_config(api_mock.create.call_args[0][0])
+        read_file_in_create_mock.assert_any_call("repository.yaml")
+        read_file_in_create_mock.assert_any_call("package-files.yaml")
+        api_instance.create_repository.assert_called_once_with(
+            [{'name': 'repo'}],
+            ['/test1.deb', '/test2.deb', '/test3.deb']
+        )
+        stdout_mock.write.assert_called_once_with(
+            "Successfully completed."
         )

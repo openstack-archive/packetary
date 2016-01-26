@@ -18,9 +18,11 @@
 
 from packetary.cli.commands.base import BaseProduceOutputCommand
 from packetary.cli.commands.base import PackagesMixin
+from packetary.cli.commands.base import RepositoriesMixin
 
 
-class ListOfPackages(PackagesMixin, BaseProduceOutputCommand):
+class ListOfPackages(
+    PackagesMixin, RepositoriesMixin, BaseProduceOutputCommand):
     """Gets the list of packages from repository(es)."""
 
     columns = (
