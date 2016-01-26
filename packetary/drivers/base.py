@@ -83,3 +83,7 @@ class RepositoryDriverBase(object):
         :return: the integer value that is relevant repository`s priority
                  less number means greater priority
         """
+
+    @abc.abstractmethod
+    def get_repository_data_scheme(self):
+        """Gets the json scheme for repository data validation."""

@@ -19,6 +19,7 @@
 import logging
 import os
 
+import jsonschema
 import six
 import stevedore
 
@@ -119,6 +120,25 @@ class RepositoryController(object):
         self.driver.add_packages(
             self.context.connection, repository, packages
         )
+
+    def validate_data(self, data, schema):
+        """Validate the input data using jsonschema validation.
+
+        :param data: a data to validate represented as a dict
+        :param schema: a schema to validate represented as a dict;
+                       must be in JSON Schema Draft 4 format.
+        """
+        try:
+            jsonschema.validate(data, schema)
+        except jsonschema.ValidationError as ex:
+            if len(ex.path) > 0:
+                join_ex_path = '.'.join(six.text_type(x) for x in ex.path)
+                detail = ("Invalid input for field/attribute {0}."
+                          " Value: {1}. {2}").format(join_ex_path,
+                                                     ex.instance, ex.message)
+            else:
+                detail = ex.message
+            raise jsonschema.ValidationError(detail)
 
     def _copy_packages(self, target, packages, observer):
         with self.context.async_section() as section:
