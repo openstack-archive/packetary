@@ -128,6 +128,8 @@ def is_retryable_http_error(code):
 class ConnectionsManager(object):
     """The connections manager."""
 
+    HTTPError = urlerror.HTTPError
+
     def __init__(self, proxy=None, secure_proxy=None, retries_num=0):
         """Initialises.
 
