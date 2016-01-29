@@ -42,6 +42,7 @@ class TestCliCommands(base.TestCase):
         "--ignore-errors-num=3",
         "--threads-num=8",
         "--retries-num=10",
+        "--retry-interval=1",
         "--http-proxy=http://proxy",
         "--https-proxy=https://proxy"
     ]
@@ -78,6 +79,7 @@ class TestCliCommands(base.TestCase):
         self.assertEqual(3, config.ignore_errors_num)
         self.assertEqual(8, config.threads_num)
         self.assertEqual(10, config.retries_num)
+        self.assertEqual(1, config.retry_interval)
 
     def test_clone_cmd(self, api_mock, read_file_mock, stdout_mock):
         read_file_mock.side_effect = [
