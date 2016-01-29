@@ -109,7 +109,14 @@ class DebRepositoryDriver(RepositoryDriverBase):
             release = self._get_url_of_metafile(
                 (url, suite, component, arch), "Release"
             )
-            deb_release = deb822.Release(connection.open_stream(release))
+            try:
+                deb_release = deb822.Release(connection.open_stream(release))
+            except connection.HTTPError as e:
+                if e.code != 404:
+                    raise
+                # some repositories does not contain release file
+                deb_release = {"origin": ""}
+
             consumer(Repository(
                 name=name,
                 architecture=arch,

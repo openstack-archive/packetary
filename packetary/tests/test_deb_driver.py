@@ -30,6 +30,11 @@ from packetary.tests.stubs.helpers import get_compressed
 PACKAGES = path.join(path.dirname(__file__), "data", "Packages")
 
 
+class HTTPError(Exception):
+    def __init__(self, code):
+        self.code = code
+
+
 class TestDebDriver(base.TestCase):
     @classmethod
     def setUpClass(cls):
@@ -39,6 +44,7 @@ class TestDebDriver(base.TestCase):
 
     def setUp(self):
         self.connection = mock.MagicMock()
+        self.connection.HTTPError = HTTPError
         self.repo = gen_repository(
             name="trusty", section=("trusty", "main"), url="file:///repo"
         )
@@ -90,6 +96,37 @@ class TestDebDriver(base.TestCase):
         self.assertEqual("Ubuntu", repo.origin)
         self.assertEqual("x86_64", repo.architecture)
         self.assertEqual("http://host/", repo.url)
+
+    def test_get_repository_if_release_does_not_exist(self):
+        repo_data = {
+            "name": "repo1", "url": "http://host", "suite": "trusty",
+            "section": ["main"], "path": "my_path"
+        }
+        repos = []
+        self.connection.open_stream.side_effect = HTTPError(404)
+        self.driver.get_repository(
+            self.connection,
+            repo_data,
+            "x86_64",
+            repos.append
+        )
+        self.assertEqual(1, len(repos))
+        self.assertEqual("", repos[0].origin)
+
+    def test_get_repository_fail_if_error(self):
+        repo_data = {
+            "name": "repo1", "url": "http://host", "suite": "trusty",
+            "section": ["main"], "path": "my_path"
+        }
+        repos = []
+        self.connection.open_stream.side_effect = HTTPError(403)
+        with self.assertRaises(HTTPError):
+            self.driver.get_repository(
+                self.connection,
+                repo_data,
+                "x86_64",
+                repos.append
+            )
 
     def test_get_flat_repository(self):
         with self.assertRaisesRegexp(ValueError, "does not supported"):
