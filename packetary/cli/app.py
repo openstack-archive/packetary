@@ -51,6 +51,13 @@ class Application(app.App):
             help="The number of retries."
         )
         parser.add_argument(
+            "--retries-delay",
+            type=int,
+            default=1,
+            metavar="NUMBER",
+            help="The number of retries."
+        )
+        parser.add_argument(
             "--threads-num",
             default=3,
             type=int,
