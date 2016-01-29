@@ -59,13 +59,15 @@ class TestRepositoryApi(base.TestCase):
     def test_create_with_config(self, connection_mock, controller_mock):
         config = Configuration(
             http_proxy="http://localhost", https_proxy="https://localhost",
-            retries_num=10, threads_num=8, ignore_errors_num=6
+            retries_num=10, retry_interval=1, threads_num=8,
+            ignore_errors_num=6
         )
         RepositoryApi.create(config, "deb", "x86_64")
         connection_mock.assert_called_once_with(
             proxy="http://localhost",
             secure_proxy="https://localhost",
-            retries_num=10
+            retries_num=10,
+            retry_interval=1
         )
         controller_mock.load.assert_called_once_with(
             mock.ANY, "deb", "x86_64"
@@ -76,14 +78,16 @@ class TestRepositoryApi(base.TestCase):
     def test_create_with_context(self, connection_mock, controller_mock):
         config = Configuration(
             http_proxy="http://localhost", https_proxy="https://localhost",
-            retries_num=10, threads_num=8, ignore_errors_num=6
+            retries_num=10, retry_interval=1, threads_num=8,
+            ignore_errors_num=6
         )
         context = Context(config)
         RepositoryApi.create(context, "deb", "x86_64")
         connection_mock.assert_called_once_with(
             proxy="http://localhost",
             secure_proxy="https://localhost",
-            retries_num=10
+            retries_num=10,
+            retry_interval=1
         )
         controller_mock.load.assert_called_once_with(
             context, "deb", "x86_64"
@@ -212,6 +216,7 @@ class TestContext(base.TestCase):
             threads_num=2,
             ignore_errors_num=3,
             retries_num=5,
+            retry_interval=10,
             http_proxy="http://localhost",
             https_proxy="https://localhost"
         )
@@ -222,7 +227,8 @@ class TestContext(base.TestCase):
         conn_manager.assert_called_once_with(
             proxy="http://localhost",
             secure_proxy="https://localhost",
-            retries_num=5
+            retries_num=5,
+            retry_interval=10
         )
 
         self.assertIs(
