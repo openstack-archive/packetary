@@ -22,8 +22,7 @@ PACKAGES_SCHEMA = {
     "items": {
         "type": "object",
         "required": [
-            "name",
-            "versions"
+            "name"
         ],
         "properties": {
             "name": {

@@ -258,5 +258,7 @@ class RepositoryApi(object):
     def _raise_validation_error(what, details, path):
         message = "Invalid {0}: {1}.".format(what, details)
         if path:
-            message = "\n".join((message, "Field: {0}".format(".".join(path))))
+            message += "\nField: [{0}]".format(
+                "][".join(repr(p) for p in path)
+            )
         raise ValueError(message)

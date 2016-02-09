@@ -179,7 +179,8 @@ class TestPackagesSchema(base.TestCase):
             {"name": "test1", "versions": [">= 1.1.2", "<= 3"]},
             {"name": "test2", "versions": ["< 3", "> 1", ">= 4"]},
             {"name": "test3", "versions": ["= 3"]},
-            {"name": "test4", "versions": ["=     3"]}
+            {"name": "test4", "versions": ["=     3"]},
+            {"name": "test4"}
         ]
         self.assertNotRaises(
             jsonschema.ValidationError, jsonschema.validate, requirements_data,
@@ -188,7 +189,6 @@ class TestPackagesSchema(base.TestCase):
 
     def test_validation_fail_for_required_properties(self):
         requirements_data = [
-            [{"name": "test1"}],
             [{"versions": ["< 3", "> 1"]}]
         ]
         for data in requirements_data:
@@ -231,7 +231,11 @@ class TestPackagesSchema(base.TestCase):
         versions = [
             ["1.1.2"],  # relational operator
             [">=3"],    # not whitespace after ro
-            ["== 3"]    # ==
+            ["== 3"],
+            ["=> 3"],
+            ["=< 3"],
+            [">> 3"],
+            ["<< 3"],
         ]
         for version in versions:
             self.assertRaisesRegexp(

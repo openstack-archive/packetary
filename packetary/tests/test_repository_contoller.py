@@ -176,3 +176,9 @@ class TestRepositoryController(base.TestCase):
         self.driver.add_packages.assert_called_once_with(
             self.ctrl.context.connection, repo, set(packages)
         )
+
+    def test_get_repository_data_schema(self):
+        self.assertIs(
+            self.ctrl.driver.get_repository_data_schema(),
+            self.ctrl.get_repository_data_schema()
+        )

@@ -33,20 +33,11 @@ class CloneCommand(PackagesMixin, RepositoriesMixin, BaseRepoCommand):
             help="The path to the destination folder."
         )
         parser.add_argument(
-            "--clean",
-            dest="keep_existing",
-            action='store_false',
-            default=True,
-            help="Remove packages that does not exist in origin repo."
-        )
-
-        parser.add_argument(
             "--sources",
             action='store_true',
             default=False,
             help="Also copy source packages."
         )
-
         parser.add_argument(
             "--locales",
             action='store_true',
@@ -61,7 +52,6 @@ class CloneCommand(PackagesMixin, RepositoriesMixin, BaseRepoCommand):
             parsed_args.repositories,
             parsed_args.requirements,
             parsed_args.destination,
-            parsed_args.keep_existing,
             parsed_args.sources,
             parsed_args.locales,
             parsed_args.include_mandatory

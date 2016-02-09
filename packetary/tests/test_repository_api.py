@@ -271,12 +271,12 @@ class TestRepositoryApi(base.TestCase):
     def test_validate_invalid_data(self, jschema_m):
         jschema_m.ValidationError = jsonschema.ValidationError
         jschema_m.SchemaError = jsonschema.SchemaError
-
-        paths = [("a", "b"), ()]
-        for path in paths:
+        paths = [(("a", 0), "\['a'\]\[0\]"), ((), "")]
+        for path, details in paths:
             msg = "Invalid data: error."
-            details = "\nField: {0}".format(".".join(path)) if path else ""
-            with self.assertRaisesRegexp(ValueError, msg + details):
+            if details:
+                msg += "\nField: {0}".format(details)
+            with self.assertRaisesRegexp(ValueError, msg):
                 jschema_m.validate.side_effect = jsonschema.ValidationError(
                     "error", path=path
                 )
@@ -285,7 +285,9 @@ class TestRepositoryApi(base.TestCase):
             jschema_m.validate.reset_mock()
 
             msg = "Invalid schema: error."
-            with self.assertRaisesRegexp(ValueError, msg + details):
+            if details:
+                msg += "\nField: {0}".format(details)
+            with self.assertRaisesRegexp(ValueError, msg):
                 jschema_m.validate.side_effect = jsonschema.SchemaError(
                     "error", schema_path=path
                 )
