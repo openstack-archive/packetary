@@ -179,7 +179,8 @@ class TestPackagesSchema(base.TestCase):
             {"name": "test1", "versions": [">= 1.1.2", "<= 3"]},
             {"name": "test2", "versions": ["< 3", "> 1", ">= 4"]},
             {"name": "test3", "versions": ["= 3"]},
-            {"name": "test4", "versions": ["=     3"]}
+            {"name": "test4", "versions": ["=     3"]},
+            {"name": "test4"}
         ]
         self.assertNotRaises(
             jsonschema.ValidationError, jsonschema.validate, requirements_data,

@@ -142,7 +142,7 @@ class RepositoryController(object):
 
         :return : Return a jsonschema represented as a dict
         """
-        return self.driver.repository_data_schema()
+        return self.driver.get_repository_data_schema()
 
     def _copy_packages(self, target, packages, observer):
         with self.context.async_section() as section:

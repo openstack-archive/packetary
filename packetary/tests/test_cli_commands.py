@@ -55,7 +55,6 @@ class TestCliCommands(base.TestCase):
         "-d", "/root",
         "-t", "deb",
         "-a", "x86_64",
-        "--clean",
         "--skip-mandatory"
     ]
 
@@ -80,6 +79,11 @@ class TestCliCommands(base.TestCase):
     def start_cmd(self, cmd, argv):
         cmd.debug(argv + self.common_argv)
 
+    def get_api_instance_mock(self, api_mock):
+        api_instance = mock.MagicMock(spec=RepositoryApi)
+        api_mock.create.return_value = api_instance
+        return api_instance
+
     def check_common_config(self, config):
         self.assertEqual("http://proxy", config.http_proxy)
         self.assertEqual("https://proxy", config.https_proxy)
@@ -93,8 +97,7 @@ class TestCliCommands(base.TestCase):
             [{"name": "repo"}],
             [{"name": "package"}],
         ]
-        api_instance = mock.MagicMock(spec=RepositoryApi)
-        api_mock.create.return_value = api_instance
+        api_instance = self.get_api_instance_mock(api_mock)
         api_instance.clone_repositories.return_value = CopyStatistics()
         self.start_cmd(clone, self.clone_argv)
         api_mock.create.assert_called_once_with(
@@ -105,7 +108,7 @@ class TestCliCommands(base.TestCase):
         read_file_mock.assert_any_call("packages.yaml")
         api_instance.clone_repositories.assert_called_once_with(
             [{"name": "repo"}], [{"name": "package"}], "/root",
-            False, False, False, False
+            False, False, False
         )
         stdout_mock.write.assert_called_once_with(
             "Packages copied: 0/0.\n"
@@ -113,8 +116,7 @@ class TestCliCommands(base.TestCase):
 
     def test_get_packages_cmd(self, api_mock, read_file_mock, stdout_mock):
         read_file_mock.return_value = [{"name": "repo"}]
-        api_instance = mock.MagicMock(spec=RepositoryApi)
-        api_mock.create.return_value = api_instance
+        api_instance = self.get_api_instance_mock(api_mock)
         api_instance.get_packages.return_value = [
             gen_package(name="test1", filesize=1, requires=None,
                         obsoletes=None, provides=None)
@@ -136,8 +138,7 @@ class TestCliCommands(base.TestCase):
 
     def test_get_unresolved_cmd(self, api_mock, read_file_mock, stdout_mock):
         read_file_mock.return_value = [{"name": "repo"}]
-        api_instance = mock.MagicMock(spec=RepositoryApi)
-        api_mock.create.return_value = api_instance
+        api_instance = self.get_api_instance_mock(api_mock)
         api_instance.get_unresolved_dependencies.return_value = [
             gen_relation(name="test")
         ]
@@ -162,8 +163,7 @@ class TestCliCommands(base.TestCase):
             [{"name": "repo"}],
             ["/test1.deb", "/test2.deb", "/test3.deb"],
         ]
-        api_instance = mock.MagicMock(spec=RepositoryApi)
-        api_mock.create.return_value = api_instance
+        api_instance = self.get_api_instance_mock(api_mock)
         api_instance.create_repository.return_value = gen_repository()
         self.start_cmd(create, self.create_argv)
         api_mock.create.assert_called_once_with(
