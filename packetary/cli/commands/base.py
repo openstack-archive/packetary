@@ -111,12 +111,23 @@ class PackagesMixin(object):
             help="Do not copy mandatory packages."
         )
 
-        parser.add_argument(
+        group = parser.add_mutually_exclusive_group()
+
+        group.add_argument(
             "-p", "--packages",
             dest='requirements',
             type=read_from_file,
             metavar='FILENAME',
             help="The path to file with list of packages."
+                 "See documentation about format."
+        )
+
+        group.add_argument(
+            "-f", "--exclude-filter",
+            dest='exclude_filter_data',
+            type=read_from_file,
+            metavar='FILENAME',
+            help="The path to file with package exclude filter data."
                  "See documentation about format."
         )
         return parser
