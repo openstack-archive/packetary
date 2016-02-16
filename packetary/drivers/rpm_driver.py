@@ -144,7 +144,8 @@ class RpmRepositoryDriver(RepositoryDriverBase):
                     mandatory=name in mandatory,
                     requires=self._get_relations(tag, "requires"),
                     obsoletes=self._get_relations(tag, "obsoletes"),
-                    provides=self._get_relations(tag, "provides")
+                    provides=self._get_relations(tag, "provides"),
+                    group=tag.find("./rpm:group", _NAMESPACES).text,
                 ))
             except (ValueError, KeyError) as e:
                 self.logger.error(
@@ -226,6 +227,7 @@ class RpmRepositoryDriver(RepositoryDriverBase):
             requires=self._parse_package_relations(pkg.requires),
             obsoletes=self._parse_package_relations(pkg.obsoletes),
             provides=self._parse_package_relations(pkg.provides),
+            group=hdr["group"],
         )
 
     def get_relative_path(self, repository, filename):
