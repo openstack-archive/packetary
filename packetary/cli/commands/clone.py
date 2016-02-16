@@ -54,7 +54,8 @@ class CloneCommand(PackagesMixin, RepositoriesMixin, BaseRepoCommand):
             parsed_args.destination,
             parsed_args.sources,
             parsed_args.locales,
-            parsed_args.include_mandatory
+            parsed_args.include_mandatory,
+            filters_data=parsed_args.filters_data,
         )
         self.stdout.write(
             "Packages copied: {0.copied}/{0.total}.\n".format(stat)

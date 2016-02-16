@@ -119,7 +119,7 @@ class TestRepositoryApi(base.TestCase):
         )
 
     def test_get_packages_as_is(self, jsonschema_mock):
-        packages = self.api.get_packages([self.repo_data], None)
+        packages = self.api.get_packages([self.repo_data], None, False, None)
         self.assertEqual(5, len(packages))
         self.assertItemsEqual(
             self.packages,
@@ -133,7 +133,7 @@ class TestRepositoryApi(base.TestCase):
                                                          jsonschema_mock):
         requirements = [{"name": "package1"}]
         packages = self.api.get_packages(
-            [self.repo_data], requirements, True
+            [self.repo_data], requirements, True, None
         )
         self.assertEqual(3, len(packages))
         self.assertItemsEqual(
@@ -151,7 +151,7 @@ class TestRepositoryApi(base.TestCase):
                                                             jsonschema_mock):
         requirements = [{"name": "package4"}]
         packages = self.api.get_packages(
-            [self.repo_data], requirements, False
+            [self.repo_data], requirements, False, None
         )
         self.assertEqual(2, len(packages))
         self.assertItemsEqual(

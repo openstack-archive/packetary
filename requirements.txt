@@ -9,7 +9,7 @@ eventlet>=0.15
 bintrees>=2.0.2
 chardet>=2.0.1
 stevedore>=1.1.0
-six>=1.5.2
+six>=1.9.0
 python-debian>=0.1.21
 lxml>=3.2
 jsonschema!=2.5.0,<3.0.0,>=2.0.0 # MIT
