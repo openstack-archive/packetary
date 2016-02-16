@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-#    Copyright 2015 Mirantis, Inc.
+#    Copyright 2016 Mirantis, Inc.
 #
 #    This program is free software; you can redistribute it and/or modify
 #    it under the terms of the GNU General Public License as published by
@@ -16,21 +16,21 @@
 #    with this program; if not, write to the Free Software Foundation, Inc.,
 #    51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 
-import pbr.version
-
-from packetary.api import Configuration
-from packetary.api import Context
-from packetary.api import RepositoryApi
-
-
-__all__ = [
-    "Configuration",
-    "Context",
-    "RepositoryApi",
-]
-
-try:
-    __version__ = pbr.version.VersionInfo(
-        'packetary').version_string()
-except Exception as e:
-    __version__ = "0.0.0"
+PACKAGE_FILTERS_SCHEMA = {
+    "$schema": "http://json-schema.org/draft-04/schema#",
+    "type": "array",
+    "items": {
+        "type": "object",
+        "properties": {
+            "name": {
+                "type": "string"
+            },
+            "section": {
+                "type": "string"
+            },
+            "group": {
+                "type": "string"
+            }
+        }
+    }
+}
