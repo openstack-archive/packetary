@@ -29,7 +29,8 @@ class Package(ComparableObject):
 
     def __init__(self, repository, name, version, filename,
                  filesize, checksum, mandatory=False,
-                 requires=None, provides=None, obsoletes=None):
+                 requires=None, provides=None, obsoletes=None,
+                 section=None):
         """Initialises.
 
         :param name: the package`s name
@@ -53,6 +54,7 @@ class Package(ComparableObject):
         self.provides = provides or []
         self.obsoletes = obsoletes or []
         self.mandatory = mandatory
+        self.section = section
 
     def __copy__(self):
         """Creates shallow copy of package."""
