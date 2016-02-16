@@ -157,6 +157,7 @@ class DebRepositoryDriver(RepositoryDriverBase):
                     # The deb does not have obsoletes section
                     obsoletes=[],
                     provides=self._get_relations(dpkg, "provides"),
+                    group=dpkg.get("section"),
                 ))
             except KeyError as e:
                 self.logger.error(
@@ -255,7 +256,8 @@ class DebRepositoryDriver(RepositoryDriverBase):
                 "recommends"
             ),
             provides=self._get_relations(debcontrol, "provides"),
-            obsoletes=[]
+            obsoletes=[],
+            group=debcontrol.get('section'),
         )
 
     def get_relative_path(self, repository, filename):
