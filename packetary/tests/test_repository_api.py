@@ -18,6 +18,8 @@
 
 import copy
 import mock
+import re
+import sys
 
 import jsonschema
 
@@ -119,7 +121,7 @@ class TestRepositoryApi(base.TestCase):
         )
 
     def test_get_packages_as_is(self, jsonschema_mock):
-        packages = self.api.get_packages([self.repo_data], None)
+        packages = self.api.get_packages([self.repo_data], None, False, None)
         self.assertEqual(5, len(packages))
         self.assertItemsEqual(
             self.packages,
@@ -133,7 +135,7 @@ class TestRepositoryApi(base.TestCase):
                                                          jsonschema_mock):
         requirements = [{"name": "package1"}]
         packages = self.api.get_packages(
-            [self.repo_data], requirements, True
+            [self.repo_data], requirements, True, None
         )
         self.assertEqual(3, len(packages))
         self.assertItemsEqual(
@@ -151,7 +153,7 @@ class TestRepositoryApi(base.TestCase):
                                                             jsonschema_mock):
         requirements = [{"name": "package4"}]
         packages = self.api.get_packages(
-            [self.repo_data], requirements, False
+            [self.repo_data], requirements, False, None
         )
         self.assertEqual(2, len(packages))
         self.assertItemsEqual(
@@ -239,12 +241,82 @@ class TestRepositoryApi(base.TestCase):
             ]
         )
 
+    def test_clone_with_filters(self, jsonschema_mock):
+        repos_data = "repos_data"
+        requirements_data = "requirements_data"
+        filters_data = "filters_data"
+        repos = "repos"
+        requirements = "requirements"
+        filters = "filters"
+
+        self.api._load_repositories = mock.Mock(return_value=repos)
+        self.api._load_requirements = mock.Mock(return_value=requirements)
+        self.api._load_filters = mock.Mock(return_value=filters)
+        self.api._get_packages = mock.Mock(return_value=set())
+        self.api.controller = mock.Mock()
+
+        self.api.clone_repositories(repos_data, requirements_data,
+                                    "destination", filters_data=filters_data)
+
+        self.api._load_repositories.assert_called_once_with(repos_data)
+        self.api._load_requirements.assert_called_once_with(requirements_data)
+        self.api._load_filters.assert_called_once_with(filters_data)
+        self.api._get_packages.assert_called_once_with(
+            repos, requirements, False, filters)
+
+    def test_get_packages_with_filters(self, jsonschema_mock):
+        filters = [lambda p: p == "p1", lambda p: p == "p3",]
+        self.api._load_packages = CallbacksAdapter()
+        self.api._load_packages.return_value = ["p1", "p2", "p3", "p4"]
+        packages = self.api._get_packages("repos", None, False, filters)
+        self.assertSetEqual(packages, set(["p2", "p4"]))
+
+    def test_get_packages_without_filters(self, jsonschema_mock):
+        self.api._load_packages = CallbacksAdapter()
+        self.api._load_packages.return_value = ["p1", "p2"]
+        packages = self.api._get_packages("repos", None, False, None)
+        self.assertSetEqual(packages, set(["p1", "p2"]))
+
     def test_get_unresolved(self, jsonschema_mock):
         unresolved = self.api.get_unresolved_dependencies([self.repo_data])
         self.assertItemsEqual(["package6"], (x.name for x in unresolved))
         jsonschema_mock.validate.assert_called_once_with(
             self.repo_data, self.schema
         )
+
+    def test_load_filters_with_none(self, jsonschema_mock):
+        self.assertIsNone(self.api._load_filters(None))
+
+    def test_load_filters(self, jsonschema_mock):
+        self.api._validate_filters_data = mock.Mock()
+        filters_data = [
+            {"name": "p1", "section": "s1"},
+            {"name": "p2"},
+            {"section": "s3"},
+            {"name": "/^.5/", "section": "/^.*3/"},
+            {"section": "/^.*4/"},
+        ]
+        filters = self.api._load_filters(filters_data)
+
+        class MyPackage: pass
+        p1 = MyPackage(); p1.name = "p1"; p1.section = "s1"
+        p2 = MyPackage(); p2.name = "p2"; p2.section = "s1"
+        p3 = MyPackage(); p3.name = "p3"; p3.section = "s2"
+        p4 = MyPackage(); p4.name = "p4"; p4.section = "s3"
+        p5 = MyPackage(); p5.name = "p5"; p5.section = "s3"
+        p6 = MyPackage(); p6.name = "p6"; p6.section = "s4"
+
+        packages = set([p1, p2, p3, p4, p5, p6])
+        expected_filtered_packages = set([p3])
+
+        filtered_packages = set()
+        for p in packages:
+            for f in filters:
+                if f(p):
+                    break
+            else:
+                filtered_packages.add(p)
+        self.assertSetEqual(expected_filtered_packages, filtered_packages)
 
     def test_load_requirements(self, jsonschema_mock):
         expected = {
