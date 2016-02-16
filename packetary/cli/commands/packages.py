@@ -41,7 +41,8 @@ class ListOfPackages(
         return api.get_packages(
             parsed_args.repositories,
             parsed_args.requirements,
-            parsed_args.include_mandatory
+            parsed_args.include_mandatory,
+            filter_data=parsed_args.exclude_filter_data,
         )
 
 

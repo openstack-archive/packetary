@@ -108,7 +108,10 @@ class TestCliCommands(base.TestCase):
         read_file_mock.assert_any_call("packages.yaml")
         api_instance.clone_repositories.assert_called_once_with(
             [{"name": "repo"}], [{"name": "package"}], "/root",
-            False, False, False
+            False,
+            False,
+            False,
+            filter_data=None,
         )
         stdout_mock.write.assert_called_once_with(
             "Packages copied: 0/0.\n"
@@ -129,7 +132,7 @@ class TestCliCommands(base.TestCase):
         )
         self.check_common_config(api_mock.create.call_args[0][0])
         api_instance.get_packages.assert_called_once_with(
-            [{"name": "repo"}], None, True
+            [{"name": "repo"}], None, True, filter_data=None
         )
         self.assertIn(
             "test1; test1.pkg",

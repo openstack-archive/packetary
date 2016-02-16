@@ -18,12 +18,14 @@
 
 from packetary.schemas.deb_repo_schema import DEB_REPO_SCHEMA
 from packetary.schemas.package_files_schema import PACKAGE_FILES_SCHEMA
+from packetary.schemas.package_filter_schema import PACKAGE_FILTER_SCHEMA
 from packetary.schemas.packages_schema import PACKAGES_SCHEMA
 from packetary.schemas.rpm_repo_schema import RPM_REPO_SCHEMA
 
 __all__ = [
     "DEB_REPO_SCHEMA",
+    "PACKAGE_FILES_SCHEMA",
+    "PACKAGE_FILTER_SCHEMA",
     "PACKAGES_SCHEMA",
     "RPM_REPO_SCHEMA",
-    "PACKAGE_FILES_SCHEMA"
 ]

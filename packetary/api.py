@@ -18,6 +18,7 @@
 
 from collections import defaultdict
 import logging
+import re
 
 import jsonschema
 import six
@@ -30,6 +31,7 @@ from packetary.objects import PackagesForest
 from packetary.objects import PackagesTree
 from packetary.objects.statistics import CopyStatistics
 from packetary.schemas import PACKAGE_FILES_SCHEMA
+from packetary.schemas import PACKAGE_FILTER_SCHEMA
 from packetary.schemas import PACKAGES_SCHEMA
 
 logger = logging.getLogger(__package__)
@@ -128,22 +130,27 @@ class RepositoryApi(object):
         return self.controller.create_repository(repo_data, package_files)
 
     def get_packages(self, repos_data, requirements_data=None,
-                     include_mandatory=False):
+                     include_mandatory=False, filter_data=None):
         """Gets the list of packages from repository(es).
 
         :param repos_data: The list of repository descriptions
         :param requirements_data: The list of package`s requirements
                                   that should be included
         :param include_mandatory: if True, all mandatory packages will be
+                                  included
+        :param filter_data: A set of filters that is used to exclude
+                            those packages which match one of filters
         :return: the set of packages
         """
         repos = self._load_repositories(repos_data)
         requirements = self._load_requirements(requirements_data)
-        return self._get_packages(repos, requirements, include_mandatory)
+        exclude_filter = self._load_filter(filter_data)
+        return self._get_packages(repos, requirements,
+                                  include_mandatory, exclude_filter)
 
     def clone_repositories(self, repos_data, requirements_data, destination,
                            include_source=False, include_locale=False,
-                           include_mandatory=False):
+                           include_mandatory=False, filter_data=None):
         """Creates the clones of specified repositories in local folder.
 
         :param repos_data: The list of repository descriptions
@@ -155,12 +162,16 @@ class RepositoryApi(object):
         :param include_locale: if True, the locales will be copied as well.
         :param include_mandatory: if True, all mandatory packages will be
                                   included
+        :param filter_data: A set of filters that is used to exclude
+                            those packages which match one of filters
         :return: count of copied and total packages.
         """
 
         repos = self._load_repositories(repos_data)
         reqs = self._load_requirements(requirements_data)
-        all_packages = self._get_packages(repos, reqs, include_mandatory)
+        exclude_filter = self._load_filter(filter_data)
+        all_packages = self._get_packages(
+            repos, reqs, include_mandatory, exclude_filter)
         package_groups = defaultdict(set)
         for pkg in all_packages:
             package_groups[pkg.repository].add(pkg)
@@ -191,7 +202,8 @@ class RepositoryApi(object):
         self._load_packages(self._load_repositories(repos_data), packages.add)
         return packages.get_unresolved_dependencies()
 
-    def _get_packages(self, repos, requirements, include_mandatory):
+    def _get_packages(self, repos, requirements, include_mandatory,
+                      exclude_filter):
         if requirements is not None:
             forest = PackagesForest()
             for repo in repos:
@@ -199,7 +211,12 @@ class RepositoryApi(object):
             return forest.get_packages(requirements, include_mandatory)
 
         packages = set()
-        self._load_packages(repos, packages.add)
+        consumer = packages.add
+        if exclude_filter is not None:
+            def consumer(p):
+                if not exclude_filter(p):
+                    packages.add(p)
+        self._load_packages(repos, consumer)
         return packages
 
     def _load_packages(self, repos, consumer):
@@ -227,6 +244,51 @@ class RepositoryApi(object):
                         ([r['name']] + version.split(None, 1))
                     ))
         return result
+
+    def _load_filter(self, filter_data):
+        """Loads filter from filter data.
+
+        Property value could be a string or a python regexp.
+        Example of filters data:
+        - name: full-package-name
+          section: section1
+        - name: /^.*substr/
+
+        :param filter_data:  A list of filters
+        :return: Lambda that could match a particular package.
+        """
+
+        if filter_data is None:
+            return
+
+        self._validate_filter_data(filter_data)
+
+        def get_pattern_match(pattern, key, value):
+            return lambda p: pattern.match(getattr(p, key))
+
+        def get_exact_match(key, value):
+            return lambda p: getattr(p, key) == value
+
+        def get_logical_and(filters):
+            return lambda p: all((f(p) for f in filters))
+
+        def get_logical_or(filters):
+            return lambda p: any((f(p) for f in filters))
+
+        filters = []
+        for fdata in filter_data:
+            matchers = []
+            for key, value in six.iteritems(fdata):
+                if value.startswith('/') and value.endswith('/'):
+                    pattern = re.compile(value[1:-1])
+                    matchers.append(get_pattern_match(pattern, key, value))
+                else:
+                    matchers.append(get_exact_match(key, value))
+            filters.append(get_logical_and(matchers))
+        return get_logical_or(filters)
+
+    def _validate_filter_data(self, filter_data):
+        self._validate_data(filter_data, PACKAGE_FILTER_SCHEMA)
 
     def _validate_repo_data(self, repo_data):
         schema = self.controller.get_repository_data_schema()

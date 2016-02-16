@@ -41,9 +41,9 @@ GROUPS_DB = path.join(path.dirname(__file__), "data", "groups.xml")
 class TestRpmDriver(base.TestCase):
     @classmethod
     def setUpClass(cls):
-        cls.createrepo = sys.modules["createrepo"] = mock.MagicMock()
-        # import driver class after patching sys.modules
+        sys.modules["createrepo"] = mock.MagicMock()
         from packetary.drivers import rpm_driver
+        cls.createrepo = rpm_driver.createrepo = mock.MagicMock()
 
         super(TestRpmDriver, cls).setUpClass()
         cls.driver = rpm_driver.RpmRepositoryDriver()
@@ -243,7 +243,7 @@ class TestRpmDriver(base.TestCase):
         self.createrepo.yumbased.YumLocalPackage.return_value = rpm_mock
         rpm_mock.returnLocalHeader.return_value = {
             "name": "Test", "epoch": 1, "version": "1.2.3", "release": "1",
-            "size": "10"
+            "size": "10", "group": "Group"
         }
         repo = gen_repository("Test", url="file:///repo/os/x86_64/")
         pkg = self.driver.load_package_from_file(repo, "test.rpm")
@@ -261,6 +261,7 @@ class TestRpmDriver(base.TestCase):
         self.assertEqual("1-1.2.3-1", str(pkg.version))
         self.assertEqual("test.rpm", pkg.filename)
         self.assertEqual((3, 4, 5), pkg.checksum)
+        self.assertEqual("Group", pkg.group)
         self.assertEqual(10, pkg.filesize)
         self.assertItemsEqual(
             ['test1 (= 0-1.2.3-1.el5)'],
