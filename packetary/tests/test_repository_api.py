@@ -119,7 +119,7 @@ class TestRepositoryApi(base.TestCase):
         )
 
     def test_get_packages_as_is(self, jsonschema_mock):
-        packages = self.api.get_packages([self.repo_data], None)
+        packages = self.api.get_packages([self.repo_data], None, False, None)
         self.assertEqual(5, len(packages))
         self.assertItemsEqual(
             self.packages,
@@ -133,7 +133,7 @@ class TestRepositoryApi(base.TestCase):
                                                          jsonschema_mock):
         requirements = [{"name": "package1"}]
         packages = self.api.get_packages(
-            [self.repo_data], requirements, True
+            [self.repo_data], requirements, True, None
         )
         self.assertEqual(3, len(packages))
         self.assertItemsEqual(
@@ -151,7 +151,7 @@ class TestRepositoryApi(base.TestCase):
                                                             jsonschema_mock):
         requirements = [{"name": "package4"}]
         packages = self.api.get_packages(
-            [self.repo_data], requirements, False
+            [self.repo_data], requirements, False, None
         )
         self.assertEqual(2, len(packages))
         self.assertItemsEqual(
@@ -238,6 +238,29 @@ class TestRepositoryApi(base.TestCase):
                 mock.call(requirements, PACKAGES_SCHEMA),
             ]
         )
+
+    def test_clone_with_filters(self, jsonschema_mock):
+        repos_data = "repos_data"
+        requirements_data = "requirements_data"
+        filters_data = "filters_data"
+        repos = "repos"
+        requirements = "requirements"
+        filters = "filters"
+
+        self.api._load_repositories = mock.Mock(return_value=repos)
+        self.api._load_requirements = mock.Mock(return_value=requirements)
+        self.api._load_filters = mock.Mock(return_value=filters)
+        self.api._get_packages = mock.Mock(return_value=set())
+        self.api.controller = mock.Mock()
+
+        self.api.clone_repositories(repos_data, requirements_data,
+                                    "destination", filters_data=filters_data)
+
+        self.api._load_repositories.assert_called_once_with(repos_data)
+        self.api._load_requirements.assert_called_once_with(requirements_data)
+        self.api._load_filters.assert_called_once_with(filters_data)
+        self.api._get_packages.assert_called_once_with(
+            repos, requirements, False, filters)
 
     def test_get_unresolved(self, jsonschema_mock):
         unresolved = self.api.get_unresolved_dependencies([self.repo_data])
