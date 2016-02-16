@@ -108,7 +108,10 @@ class TestCliCommands(base.TestCase):
         read_file_mock.assert_any_call("packages.yaml")
         api_instance.clone_repositories.assert_called_once_with(
             [{"name": "repo"}], [{"name": "package"}], "/root",
-            False, False, False
+            False,
+            False,
+            False,
+            filters_data=None,
         )
         stdout_mock.write.assert_called_once_with(
             "Packages copied: 0/0.\n"
