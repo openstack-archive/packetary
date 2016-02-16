@@ -16,16 +16,18 @@
 #    with this program; if not, write to the Free Software Foundation, Inc.,
 #    51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 
-from packetary.schemas.deb_repo_schema import DEB_REPO_SCHEMA
-from packetary.schemas.package_files_schema import PACKAGE_FILES_SCHEMA
-from packetary.schemas.package_filters_schema import PACKAGE_FILTERS_SCHEMA
-from packetary.schemas.packages_schema import PACKAGES_SCHEMA
-from packetary.schemas.rpm_repo_schema import RPM_REPO_SCHEMA
-
-__all__ = [
-    "DEB_REPO_SCHEMA",
-    "PACKAGE_FILES_SCHEMA",
-    "PACKAGE_FILTERS_SCHEMA",
-    "PACKAGES_SCHEMA",
-    "RPM_REPO_SCHEMA",
-]
+PACKAGE_FILTERS_SCHEMA = {
+    "$schema": "http://json-schema.org/draft-04/schema#",
+    "type": "array",
+    "items": {
+        "type": "object",
+        "properties": {
+            "name": {
+                "type": "string"
+            },
+            "section": {
+                "type": "string"
+            }
+        }
+    }
+}

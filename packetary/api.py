@@ -30,6 +30,7 @@ from packetary.objects import PackagesForest
 from packetary.objects import PackagesTree
 from packetary.objects.statistics import CopyStatistics
 from packetary.schemas import PACKAGE_FILES_SCHEMA
+from packetary.schemas import PACKAGE_FILTERS_SCHEMA
 from packetary.schemas import PACKAGES_SCHEMA
 
 logger = logging.getLogger(__package__)
@@ -143,7 +144,7 @@ class RepositoryApi(object):
 
     def clone_repositories(self, repos_data, requirements_data, destination,
                            include_source=False, include_locale=False,
-                           include_mandatory=False):
+                           include_mandatory=False, filters_data=None):
         """Creates the clones of specified repositories in local folder.
 
         :param repos_data: The list of repository descriptions
@@ -160,7 +161,9 @@ class RepositoryApi(object):
 
         repos = self._load_repositories(repos_data)
         reqs = self._load_requirements(requirements_data)
-        all_packages = self._get_packages(repos, reqs, include_mandatory)
+        filters = self._load_filters(filters_data)
+        all_packages = self._get_packages(
+            repos, reqs, include_mandatory, filters)
         package_groups = defaultdict(set)
         for pkg in all_packages:
             package_groups[pkg.repository].add(pkg)
@@ -191,7 +194,7 @@ class RepositoryApi(object):
         self._load_packages(self._load_repositories(repos_data), packages.add)
         return packages.get_unresolved_dependencies()
 
-    def _get_packages(self, repos, requirements, include_mandatory):
+    def _get_packages(self, repos, requirements, include_mandatory, filters):
         if requirements is not None:
             forest = PackagesForest()
             for repo in repos:
@@ -199,12 +202,12 @@ class RepositoryApi(object):
             return forest.get_packages(requirements, include_mandatory)
 
         packages = set()
-        self._load_packages(repos, packages.add)
-        return packages
-
-    def _load_packages(self, repos, consumer):
         for repo in repos:
-            self.controller.load_packages(repo, consumer)
+            self.controller.load_packages(repo, packages.add)
+
+        if filters is not None:
+            return filter(lambda p: not any([f(p) for f in filters]), packages)
+        return packages
 
     def _load_repositories(self, repos_data):
         for repo_data in repos_data:
@@ -227,6 +230,19 @@ class RepositoryApi(object):
                         ([r['name']] + version.split(None, 1))
                     ))
         return result
+
+    def _load_filters(self, filters_data):
+        if filters_data is None:
+            return
+        self._validate_filters_data(filters_data)
+        filters = []
+        for f in filters_data:
+            filters.append(lambda p: all(
+                [getattr(p, prop) == f[prop] for prop in f]))
+        return filters
+
+    def _validate_filters_data(self, filters_data):
+        self._validate_data(filters_data, PACKAGE_FILTERS_SCHEMA)
 
     def _validate_repo_data(self, repo_data):
         schema = self.controller.get_repository_data_schema()
