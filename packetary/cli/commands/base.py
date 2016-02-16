@@ -119,6 +119,15 @@ class PackagesMixin(object):
             help="The path to file with list of packages."
                  "See documentation about format."
         )
+
+        parser.add_argument(
+            "-f", "--filter",
+            dest='filter_data',
+            type=read_from_file,
+            metavar='FILENAME',
+            help="The path to file with package filter data."
+                 "See documentation about format."
+        )
         return parser
 
 

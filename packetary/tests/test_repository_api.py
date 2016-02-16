@@ -25,6 +25,7 @@ from packetary.api import Configuration
 from packetary.api import Context
 from packetary.api import RepositoryApi
 from packetary.schemas import PACKAGE_FILES_SCHEMA
+from packetary.schemas import PACKAGE_FILTER_SCHEMA
 from packetary.schemas import PACKAGES_SCHEMA
 from packetary.tests import base
 from packetary.tests.stubs import generator
@@ -119,7 +120,7 @@ class TestRepositoryApi(base.TestCase):
         )
 
     def test_get_packages_as_is(self, jsonschema_mock):
-        packages = self.api.get_packages([self.repo_data], None)
+        packages = self.api.get_packages([self.repo_data], None, False, None)
         self.assertEqual(5, len(packages))
         self.assertItemsEqual(
             self.packages,
@@ -133,7 +134,7 @@ class TestRepositoryApi(base.TestCase):
                                                          jsonschema_mock):
         requirements = [{"name": "package1"}]
         packages = self.api.get_packages(
-            [self.repo_data], requirements, True
+            [self.repo_data], requirements, True, None
         )
         self.assertEqual(3, len(packages))
         self.assertItemsEqual(
@@ -151,7 +152,7 @@ class TestRepositoryApi(base.TestCase):
                                                             jsonschema_mock):
         requirements = [{"name": "package4"}]
         packages = self.api.get_packages(
-            [self.repo_data], requirements, False
+            [self.repo_data], requirements, False, None
         )
         self.assertEqual(2, len(packages))
         self.assertItemsEqual(
@@ -239,12 +240,85 @@ class TestRepositoryApi(base.TestCase):
             ]
         )
 
+    def test_clone_with_filter(self, jsonschema_mock):
+        repos_data = "repos_data"
+        requirements_data = "requirements_data"
+        filter_data = "filter_data"
+        repos = "repos"
+        requirements = "requirements"
+        exclude_filter = "exclude_filter"
+
+        self.api._load_repositories = mock.Mock(return_value=repos)
+        self.api._load_requirements = mock.Mock(return_value=requirements)
+        self.api._load_exclude_filter = mock.Mock(return_value=exclude_filter)
+        self.api._get_packages = mock.Mock(return_value=set())
+        self.api.controller = mock.Mock()
+
+        self.api.clone_repositories(repos_data, requirements_data,
+                                    "destination", filter_data=filter_data)
+
+        self.api._load_repositories.assert_called_once_with(repos_data)
+        self.api._load_requirements.assert_called_once_with(requirements_data)
+        self.api._load_exclude_filter.assert_called_once_with(filter_data)
+        self.api._get_packages.assert_called_once_with(
+            repos, requirements, False, exclude_filter)
+
+    def test_get_packages_with_exclude_filter(self, jsonschema_mock):
+        exclude_filter = lambda p: any([p == "p1", p == "p3"])
+        self.api._load_packages = CallbacksAdapter()
+        self.api._load_packages.return_value = ["p1", "p2", "p3", "p4"]
+        packages = self.api._get_packages("repos", None, False, exclude_filter)
+        self.assertSetEqual(packages, set(["p2", "p4"]))
+
+    def test_get_packages_without_exclude_filter(self, jsonschema_mock):
+        self.api._load_packages = CallbacksAdapter()
+        self.api._load_packages.return_value = ["p1", "p2"]
+        packages = self.api._get_packages("repos", None, False, None)
+        self.assertSetEqual(packages, set(["p1", "p2"]))
+
     def test_get_unresolved(self, jsonschema_mock):
         unresolved = self.api.get_unresolved_dependencies([self.repo_data])
         self.assertItemsEqual(["package6"], (x.name for x in unresolved))
         jsonschema_mock.validate.assert_called_once_with(
             self.repo_data, self.schema
         )
+
+    def test_load_exclude_filter_with_none(self, jsonschema_mock):
+        self.assertIsNone(self.api._load_exclude_filter(None))
+
+    def test_load_exclude_filter(self, jsonschema_mock):
+        self.api._validate_filter_data = mock.Mock()
+        filter_data = [
+            {"name": "p1", "group": "g1"},
+            {"name": "p2"},
+            {"group": "g3"},
+            {"name": "/^.5/", "group": "/^.*3/"},
+            {"group": "/^.*4/"},
+        ]
+        exclude_filter = self.api._load_exclude_filter(filter_data)
+
+        p1 = generator.gen_package(name="p1", group="g1")
+        p2 = generator.gen_package(name="p2", group="g1")
+        p3 = generator.gen_package(name="p3", group="g2")
+        p4 = generator.gen_package(name="p4", group="g3")
+        p5 = generator.gen_package(name="p5", group="g3")
+        p6 = generator.gen_package(name="p6", group="g4")
+
+        cases = [
+            (True, (p1,)),
+            (True, (p2,)),
+            (False, (p3,)),
+            (True, (p4,)),
+            (True, (p5,)),
+            (True, (p6,)),
+        ]
+        self._check_cases(self.assertEqual, cases, exclude_filter)
+
+    def test_validate_filter_data(self, jsonschema_mock):
+        self.api._validate_data = mock.Mock()
+        self.api._validate_filter_data("filter_data")
+        self.api._validate_data.assert_called_once_with("filter_data",
+                                                        PACKAGE_FILTER_SCHEMA)
 
     def test_load_requirements(self, jsonschema_mock):
         expected = {
