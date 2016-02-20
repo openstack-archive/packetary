@@ -105,6 +105,7 @@ class RpmRepositoryDriver(RepositoryDriverBase):
             name=repository_data['name'],
             url=utils.normalize_repository_url(repository_data["uri"]),
             architecture=arch,
+            path=repository_data.get('path'),
             origin=""
         ))
 
@@ -203,6 +204,7 @@ class RpmRepositoryDriver(RepositoryDriverBase):
             name=repository_data['name'],
             url=utils.normalize_repository_url(repository_data["uri"]),
             architecture=arch,
+            path=repository_data.get('path'),
             origin=repository_data.get('origin')
         )
         utils.ensure_dir_exist(utils.get_path_from_url(repository.url))
