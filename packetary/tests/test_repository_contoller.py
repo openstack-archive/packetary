@@ -87,7 +87,7 @@ class TestRepositoryController(base.TestCase):
 
     @mock.patch("packetary.controllers.repository.os")
     def test_fork_repository(self, os):
-        os.path.join.side_effect = lambda *args: "".join(args)
+        os.path.join.side_effect = lambda *args: "/".join(args)
         repo = gen_repository(name="test1", url="file:///test")
         clone = copy.copy(repo)
         clone.url = "/root/repo"
@@ -98,7 +98,7 @@ class TestRepositoryController(base.TestCase):
             self.context.connection, repo, "./repo/test", False, False
         )
         repo.path = "os"
-        self.ctrl.fork_repository(repo, "./repo/", False, False)
+        self.ctrl.fork_repository(repo, "./repo", False, False)
         self.driver.fork_repository.assert_called_with(
             self.context.connection, repo, "./repo/os", False, False
         )

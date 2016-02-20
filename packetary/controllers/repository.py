@@ -95,7 +95,9 @@ class RepositoryController(object):
         """
         new_path = os.path.join(
             destination,
-            repository.path or utils.get_path_from_url(repository.url, False)
+            repository.path or
+            # the cut first '/', because otherwise path.join uses it as is
+            utils.get_path_from_url(repository.url, False)[1:]
         )
         logger.info("cloning repository '%s' to '%s'", repository, new_path)
         return self.driver.fork_repository(
