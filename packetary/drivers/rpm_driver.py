@@ -20,11 +20,11 @@ import copy
 import multiprocessing
 import os
 import shutil
+import tempfile
 
 import createrepo
 import lxml.etree as etree
 import six
-
 
 from packetary.drivers.base import RepositoryDriverBase
 from packetary.library.checksum import composite as checksum_composite
@@ -157,35 +157,8 @@ class RpmRepositoryDriver(RepositoryDriverBase):
         self.logger.info("loaded: %d packages from %s.", counter, repository)
 
     def add_packages(self, connection, repository, packages):
-        basepath = utils.get_path_from_url(repository.url)
-        self.logger.info("rebuild repository in %s", basepath)
-        md_config = createrepo.MetaDataConfig()
-        try:
-            md_config.workers = multiprocessing.cpu_count()
-            md_config.directory = str(basepath)
-            md_config.update = os.path.exists(
-                os.path.join(basepath, md_config.finaldir)
-            )
-            mdgen = createrepo.MetaDataGenerator(
-                config_obj=md_config, callback=CreaterepoCallBack(self.logger)
-            )
-            mdgen.doPkgMetadata()
-            mdgen.doRepoMetadata()
-            mdgen.doFinalMove()
-        except createrepo.MDError as e:
-            err_msg = six.text_type(e)
-            self.logger.exception(
-                "failed to create yum repository in %s: %s",
-                basepath,
-                err_msg
-            )
-            shutil.rmtree(
-                os.path.join(md_config.outputdir, md_config.tempdir),
-                ignore_errors=True
-            )
-            raise RuntimeError(
-                "Failed to create yum repository in {0}."
-                .format(err_msg))
+        groupstree = self._load_groups(connection, repository)
+        self._rebuild_repository(repository, packages, groupstree)
 
     def fork_repository(self, connection, repository, destination,
                         source=False, locale=False):
@@ -194,7 +167,8 @@ class RpmRepositoryDriver(RepositoryDriverBase):
         new_repo = copy.copy(repository)
         new_repo.url = utils.normalize_repository_url(destination)
         utils.ensure_dir_exist(destination)
-        self.add_packages(connection, new_repo, set())
+        groupstree = self._load_groups(connection, repository)
+        self._rebuild_repository(new_repo, None, groupstree)
         return new_repo
 
     def create_repository(self, repository_data, arch):
@@ -206,6 +180,7 @@ class RpmRepositoryDriver(RepositoryDriverBase):
             origin=repository_data.get('origin')
         )
         utils.ensure_dir_exist(utils.get_path_from_url(repository.url))
+        self._rebuild_repository(repository, None, None)
         return repository
 
     def load_package_from_file(self, repository, filepath):
@@ -232,6 +207,59 @@ class RpmRepositoryDriver(RepositoryDriverBase):
 
     def get_relative_path(self, repository, filename):
         return "packages/" + filename
+
+    def _rebuild_repository(self, repository, packages, groupstree=None):
+        basepath = utils.get_path_from_url(repository.url)
+        self.logger.info("rebuild repository in %s", basepath)
+        md_config = createrepo.MetaDataConfig()
+        update = packages is not None and \
+            os.path.exists(os.path.join(basepath, md_config.finaldir))
+
+        groupsfile = None
+        if groupstree is not None:
+            with tempfile.NamedTemporaryFile(delete=False) as tmp:
+                groupstree.write(tmp)
+                groupsfile = tmp.name
+        try:
+            md_config.workers = multiprocessing.cpu_count()
+            md_config.directory = str(basepath)
+            md_config.groupfile = groupsfile
+            md_config.update = update
+            if packages is None:
+                # only generate meta-files, without packages info
+                md_config.excludes = ["*"]
+
+            mdgen = createrepo.MetaDataGenerator(
+                config_obj=md_config, callback=CreaterepoCallBack(self.logger)
+            )
+            mdgen.doPkgMetadata()
+            mdgen.doRepoMetadata()
+            mdgen.doFinalMove()
+        except createrepo.MDError as e:
+            err_msg = six.text_type(e)
+            self.logger.exception(
+                "failed to create yum repository in %s: %s",
+                basepath,
+                err_msg
+            )
+            shutil.rmtree(
+                os.path.join(md_config.outputdir, md_config.tempdir),
+                ignore_errors=True
+            )
+            raise RuntimeError(
+                "Failed to create yum repository in {0}."
+                .format(err_msg))
+        finally:
+            if groupsfile is not None:
+                os.unlink(groupsfile)
+
+    def _load_groups(self, connection, repository):
+        repomd = urljoin(repository.url, "repodata/repomd.xml")
+        self.logger.debug("load repomd: %s", repomd)
+        repomd_tree = etree.parse(connection.open_stream(repomd))
+        return self._load_db(
+            connection, repository.url, repomd_tree, "group_gz", "group"
+        )
 
     def _load_db(self, connection, baseurl, repomd, *aliases):
         """Loads database.

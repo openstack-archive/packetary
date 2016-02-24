@@ -170,7 +170,7 @@ class RepositoryController(object):
             utils.get_path_from_url(urljoin(target.url, dst_path)),
             size=package.filesize
         )
-        if package.filesize < 0:
+        if package.filesize <= 0:
             package.filesize = bytes_copied
         if observer:
             observer(bytes_copied)

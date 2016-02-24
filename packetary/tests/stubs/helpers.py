@@ -64,3 +64,7 @@ def get_compressed(stream):
     with closing(gzip.GzipFile(fileobj=compressed, mode="wb")) as gz:
         gz.write(stream.read())
     return Buffer(compressed)
+
+
+def read_to_buffer(stream):
+    return six.BytesIO(stream.read())
