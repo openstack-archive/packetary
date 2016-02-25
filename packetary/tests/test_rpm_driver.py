@@ -27,6 +27,7 @@ from packetary.schemas import RPM_REPO_SCHEMA
 from packetary.tests import base
 from packetary.tests.stubs.generator import gen_repository
 from packetary.tests.stubs.helpers import get_compressed
+from packetary.tests.stubs.helpers import read_to_buffer
 
 
 REPOMD = path.join(path.dirname(__file__), "data", "repomd.xml")
@@ -52,6 +53,24 @@ class TestRpmDriver(base.TestCase):
     def setUp(self):
         self.createrepo.reset_mock()
         self.connection = mock.MagicMock()
+
+    def configure_streams(self, groups_gzipped=True):
+        streams = []
+        if groups_gzipped:
+            groups_conv = get_compressed
+            md_file = REPOMD
+        else:
+            groups_conv = read_to_buffer
+            md_file = REPOMD2
+
+        for conv, fname in six.moves.zip(
+            (read_to_buffer, groups_conv, get_compressed),
+            (md_file, GROUPS_DB, PRIMARY_DB)
+        ):
+            with open(fname, "rb") as s:
+                streams.append(conv(s))
+
+        self.connection.open_stream.side_effect = streams
 
     def test_priority_sort(self):
         repos = [
@@ -89,17 +108,8 @@ class TestRpmDriver(base.TestCase):
         self.assertEqual("centos", repo.path)
 
     def test_get_packages(self):
-        streams = []
-        for conv, fname in zip(
-                (lambda x: six.BytesIO(x.read()),
-                 get_compressed, get_compressed),
-                (REPOMD, GROUPS_DB, PRIMARY_DB)
-        ):
-            with open(fname, "rb") as s:
-                streams.append(conv(s))
-
+        self.configure_streams()
         packages = []
-        self.connection.open_stream.side_effect = streams
         self.driver.get_packages(
             self.connection,
             gen_repository("test", url="http://host/centos/os/x86_64/"),
@@ -146,18 +156,8 @@ class TestRpmDriver(base.TestCase):
         self.assertFalse(packages[1].mandatory)
 
     def test_get_packages_if_group_not_gzipped(self):
-        streams = []
-        for conv, fname in zip(
-                (lambda x: six.BytesIO(x.read()),
-                 lambda x: six.BytesIO(x.read()),
-                 get_compressed),
-                (REPOMD2, GROUPS_DB, PRIMARY_DB)
-        ):
-            with open(fname, "rb") as s:
-                streams.append(conv(s))
-
+        self.configure_streams(False)
         packages = []
-        self.connection.open_stream.side_effect = streams
         self.driver.get_packages(
             self.connection,
             gen_repository("test", url="http://host/centos/os/x86_64/"),
@@ -170,46 +170,83 @@ class TestRpmDriver(base.TestCase):
         package = packages[0]
         self.assertTrue(package.mandatory)
 
-    @mock.patch("packetary.drivers.rpm_driver.os.path.exists")
-    @mock.patch("packetary.drivers.rpm_driver.shutil")
-    def test_add_packages(self, shutil, path_exists):
-        self.createrepo.MDError = ValueError
-        self.createrepo.MetaDataGenerator().doFinalMove.side_effect = [
-            None, self.createrepo.MDError()
-        ]
+    @mock.patch("packetary.drivers.rpm_driver.os")
+    @mock.patch("packetary.drivers.rpm_driver.tempfile.NamedTemporaryFile")
+    def test_add_packages_to_existing(self, tmp_mock, os_mock):
+        self.configure_streams()
+        tmp_file = mock.MagicMock()
+        tmp_file.name = "/tmp/groups.gz"
+        tmp_mock.return_value.__enter__.return_value = tmp_file
         repo = gen_repository("test", url="file:///repo/os/x86_64")
-        self.createrepo.MetaDataConfig().outputdir = "/repo/os/x86_64"
-        self.createrepo.MetaDataConfig().tempdir = "tmp"
-        self.createrepo.MetaDataConfig().finaldir = "repodata"
-        path_exists.side_effect = [True, False]
+        md_gen = mock.MagicMock()
+        self.createrepo.MetaDataGenerator.return_value = md_gen
+        md_gen.outputdir = "/repo/os/x86_64"
+        md_gen.tempdir = "tmp"
+        md_gen.finaldir = "repodata"
+        os_mock.path.exists.return_value = True
         self.driver.add_packages(self.connection, repo, set())
         self.assertEqual(
             "/repo/os/x86_64",
             self.createrepo.MetaDataConfig().directory
         )
         self.assertTrue(self.createrepo.MetaDataConfig().update)
-        self.createrepo.MetaDataGenerator()\
-            .doPkgMetadata.assert_called_once_with()
-        self.createrepo.MetaDataGenerator()\
-            .doRepoMetadata.assert_called_once_with()
-        self.createrepo.MetaDataGenerator()\
-            .doFinalMove.assert_called_once_with()
+        md_gen.doPkgMetadata.assert_called_once_with()
+        md_gen.doRepoMetadata.assert_called_once_with()
+        md_gen.doFinalMove.assert_called_once_with()
 
-        with self.assertRaises(RuntimeError):
-            self.driver.add_packages(self.connection, repo, set())
-
-        self.assertFalse(self.createrepo.MetaDataConfig().update)
-        shutil.rmtree.assert_called_once_with(
-            "/repo/os/x86_64/tmp", ignore_errors=True
+        self.assertGreater(tmp_file.write.call_count, 0)
+        self.assertEqual(
+            tmp_file.name, self.createrepo.MetaDataConfig().groupfile
         )
+        os_mock.unlink.assert_called_once_with(tmp_file.name)
 
-    @mock.patch("packetary.drivers.rpm_driver.utils.ensure_dir_exist")
-    def test_fork_repository(self, ensure_dir_exists_mock):
-        repo = gen_repository("os", url="http://localhost/os/x86_64/")
-        self.createrepo.MetaDataGenerator().doFinalMove.side_effect = [None]
+    @mock.patch("packetary.drivers.rpm_driver.os")
+    @mock.patch("packetary.drivers.rpm_driver.shutil")
+    @mock.patch("packetary.drivers.rpm_driver.tempfile.NamedTemporaryFile")
+    def test_add_packages_clean_metadata_on_error(
+            self, tmp_mock, shutil_mock, os_mock
+    ):
+        self.configure_streams()
+        tmp_file = mock.MagicMock()
+        tmp_file.name = "/tmp/groups.gz"
+        tmp_mock.return_value.__enter__.return_value = tmp_file
+        self.createrepo.MDError = ValueError
+        md_gen = mock.MagicMock()
+        self.createrepo.MetaDataGenerator.return_value = md_gen
+        md_gen.doFinalMove.side_effect = self.createrepo.MDError()
+
+        repo = gen_repository("test", url="file:///repo/os/x86_64")
         self.createrepo.MetaDataConfig().outputdir = "/repo/os/x86_64"
         self.createrepo.MetaDataConfig().tempdir = "tmp"
         self.createrepo.MetaDataConfig().finaldir = "repodata"
+        os_mock.path.exists.return_value = True
+        os_mock.path.join.side_effect = lambda *a: '/'.join(a)
+        with self.assertRaises(RuntimeError):
+            self.driver.add_packages(self.connection, repo, set())
+        shutil_mock.rmtree.assert_called_once_with(
+            "/repo/os/x86_64/tmp", ignore_errors=True
+        )
+        os_mock.unlink.assert_called_once_with(tmp_file.name)
+
+    @mock.patch("packetary.drivers.rpm_driver.os")
+    @mock.patch("packetary.drivers.rpm_driver.tempfile.NamedTemporaryFile")
+    @mock.patch("packetary.drivers.rpm_driver.utils.ensure_dir_exist")
+    def test_fork_repository(
+            self, ensure_dir_exists_mock, tmp_mock, os_mock
+    ):
+        self.configure_streams()
+        tmp_file = mock.MagicMock()
+        tmp_file.name = "/tmp/groups.gz"
+        tmp_mock.return_value.__enter__.return_value = tmp_file
+        repo = gen_repository("os", url="http://localhost/os/x86_64/")
+        md_gen = mock.MagicMock()
+        self.createrepo.MetaDataGenerator.return_value = md_gen
+        md_gen.doFinalMove.side_effect = [None]
+        md_gen.outputdir = "/repo/os/x86_64"
+        md_gen.tempdir = "tmp"
+        md_gen.finaldir = "repodata"
+        md_config = mock.MagicMock()
+        self.createrepo.MetaDataConfig.return_value = md_config
         new_repo = self.driver.fork_repository(
             self.connection,
             repo,
@@ -219,15 +256,33 @@ class TestRpmDriver(base.TestCase):
         self.assertEqual(repo.name, new_repo.name)
         self.assertEqual(repo.architecture, new_repo.architecture)
         self.assertEqual("file:///repo/os/x86_64/", new_repo.url)
-        self.createrepo.MetaDataGenerator()\
-            .doFinalMove.assert_called_once_with()
+        md_gen.doFinalMove.assert_called_once_with()
+        self.assertGreater(tmp_file.write.call_count, 0)
+        self.assertEqual(["*"], md_config.excludes)
+        self.assertFalse(md_config.update)
+        self.assertEqual(tmp_file.name, md_config.groupfile)
+        os_mock.unlink.assert_called_once_with(tmp_file.name)
 
+    @mock.patch("packetary.drivers.rpm_driver.os")
+    @mock.patch("packetary.drivers.rpm_driver.tempfile.NamedTemporaryFile")
     @mock.patch("packetary.drivers.rpm_driver.utils.ensure_dir_exist")
-    def test_create_repository(self, ensure_dir_exists_mock):
+    def test_create_repository(
+            self, ensure_dir_exists_mock, tmp_mock, os_mock
+    ):
         repository_data = {
             "name": "Test", "uri": "file:///repo/os/x86_64", "origin": "Test",
             "path": "centos"
         }
+        self.configure_streams()
+        md_gen = mock.MagicMock()
+        self.createrepo.MetaDataGenerator.return_value = md_gen
+        md_gen.doFinalMove.side_effect = [None]
+        md_gen.outputdir = "/repo/os/x86_64"
+        md_gen.tempdir = "tmp"
+        md_gen.finaldir = "repodata"
+        md_config = mock.MagicMock()
+        self.createrepo.MetaDataConfig.return_value = md_config
+
         repo = self.driver.create_repository(repository_data, "x86_64")
         ensure_dir_exists_mock.assert_called_once_with("/repo/os/x86_64/")
         self.assertEqual(repository_data["name"], repo.name)
@@ -235,6 +290,9 @@ class TestRpmDriver(base.TestCase):
         self.assertEqual(repository_data["uri"] + "/", repo.url)
         self.assertEqual(repository_data["origin"], repo.origin)
         self.assertEqual(repository_data["path"], repo.path)
+        md_gen.doFinalMove.assert_called_once_with()
+        self.assertEqual(["*"], md_config.excludes)
+        self.assertFalse(md_config.update)
 
     @mock.patch("packetary.drivers.rpm_driver.utils")
     def test_load_package_from_file(self, utils):
