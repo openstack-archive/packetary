@@ -25,15 +25,11 @@ from packetary.schemas import DEB_REPO_SCHEMA
 from packetary.tests import base
 from packetary.tests.stubs.generator import gen_package
 from packetary.tests.stubs.generator import gen_repository
+from packetary.tests.stubs.helpers import HTTPError
 from packetary.tests.stubs.helpers import get_compressed
 
 
 PACKAGES = path.join(path.dirname(__file__), "data", "Packages")
-
-
-class HTTPError(Exception):
-    def __init__(self, code):
-        self.code = code
 
 
 class TestDebDriver(base.TestCase):

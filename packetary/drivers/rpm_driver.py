@@ -170,6 +170,13 @@ class RpmRepositoryDriver(RepositoryDriverBase):
         new_repo.url = utils.normalize_repository_url(destination)
         utils.ensure_dir_exist(destination)
         groupstree = self._load_groups(connection, repository)
+        # try to load groups tree from repository if it already existed
+        if groupstree is None:
+            try:
+                groupstree = self._load_groups(connection, new_repo)
+            except connection.HTTPError as e:
+                if e.code != 404:
+                    raise
         self._rebuild_repository(new_repo, None, groupstree)
         return new_repo
 
@@ -220,9 +227,9 @@ class RpmRepositoryDriver(RepositoryDriverBase):
 
         groupsfile = None
         if groupstree is not None:
-            with tempfile.NamedTemporaryFile(delete=False) as tmp:
-                groupstree.write(tmp)
-                groupsfile = tmp.name
+            groupsfile = os.path.join(tempfile.gettempdir(), "groups.xml")
+            with open(groupsfile, 'w') as fd:
+                groupstree.write(fd)
         try:
             md_config.workers = multiprocessing.cpu_count()
             md_config.directory = str(basepath)
