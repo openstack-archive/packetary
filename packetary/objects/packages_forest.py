@@ -54,28 +54,29 @@ class PackagesForest(object):
 
         resolved = set()
         unresolved = set()
-        stack = [requirements]
+        stack = [(None, requirements)]
 
         if include_mandatory:
             for tree in self.trees:
                 for mandatory in tree.mandatory_packages:
                     resolved.add(mandatory)
-                    stack.append(mandatory.requires)
+                    stack.append((mandatory, mandatory.requires))
 
         while stack:
-            requirements = stack.pop()
+            pkg, requirements = stack.pop()
             for required in requirements:
                 for rel in required:
                     if rel not in unresolved:
                         candidate = self.find(rel)
                         if candidate is not None:
                             if candidate not in resolved:
-                                stack.append(candidate.requires)
+                                stack.append((candidate, candidate.requires))
                                 resolved.add(candidate)
                             break
                 else:
                     unresolved.add(required)
-                    logger.warning("Unresolved relation: %s", required)
+                    logger.warning("Unresolved relation: %s from %s",
+                                   required, pkg and pkg.name)
         return resolved
 
     def find(self, relation):
