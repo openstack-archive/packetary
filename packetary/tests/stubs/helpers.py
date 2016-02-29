@@ -22,6 +22,11 @@ import mock
 import six
 
 
+class HTTPError(Exception):
+    def __init__(self, code):
+        self.code = code
+
+
 class CallbacksAdapter(mock.MagicMock):
     """Helper to return data through callback."""
 

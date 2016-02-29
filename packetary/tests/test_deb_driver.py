@@ -25,15 +25,11 @@ from packetary.schemas import DEB_REPO_SCHEMA
 from packetary.tests import base
 from packetary.tests.stubs.generator import gen_package
 from packetary.tests.stubs.generator import gen_repository
+from packetary.tests.stubs.helpers import HTTPError
 from packetary.tests.stubs.helpers import get_compressed
 
 
 PACKAGES = path.join(path.dirname(__file__), "data", "Packages")
-
-
-class HTTPError(Exception):
-    def __init__(self, code):
-        self.code = code
 
 
 class TestDebDriver(base.TestCase):
@@ -318,7 +314,9 @@ class TestDebDriver(base.TestCase):
             "section": "main", "type": "rpm", "priority": "100",
             "origin": "Origin", "path": "/repo"
         }
-        repo = self.driver.create_repository(repository_data, "x86_64")
+        repo = self.driver.create_repository(
+            self.connection, repository_data, "x86_64"
+        )
         self.assertEqual(repository_data["name"], repo.name)
         self.assertEqual("x86_64", repo.architecture)
         self.assertEqual(repository_data["uri"] + "/", repo.url)
@@ -346,10 +344,14 @@ class TestDebDriver(base.TestCase):
             "origin": "Origin", "path": "/repo"
         }
         with self.assertRaisesRegexp(ValueError, "flat format"):
-            self.driver.create_repository(repository_data, "x86_64")
+            self.driver.create_repository(
+                self.connection, repository_data, "x86_64"
+            )
         with self.assertRaisesRegexp(ValueError, "single component"):
             repository_data["section"] = ["main", "universe"]
-            self.driver.create_repository(repository_data, "x86_64")
+            self.driver.create_repository(
+                self.connection, repository_data, "x86_64"
+            )
 
     @mock.patch.multiple(
         "packetary.drivers.deb_driver",
