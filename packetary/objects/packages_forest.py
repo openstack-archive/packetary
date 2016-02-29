@@ -51,7 +51,6 @@ class PackagesForest(object):
         # TODO(bgaifullin): use versions intersection instead of union
         # now the all versions that fit requirements are selected
         # need to select only one version that fits all requirements
-
         resolved = set()
         unresolved = set()
         stack = [(None, requirements)]
