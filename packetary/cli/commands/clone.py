@@ -16,6 +16,8 @@
 #    with this program; if not, write to the Free Software Foundation, Inc.,
 #    51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 
+import os
+
 from packetary.cli.commands.base import BaseRepoCommand
 from packetary.cli.commands.base import PackagesMixin
 from packetary.cli.commands.base import RepositoriesMixin
@@ -51,7 +53,7 @@ class CloneCommand(PackagesMixin, RepositoriesMixin, BaseRepoCommand):
         stat = api.clone_repositories(
             parsed_args.repositories,
             parsed_args.requirements,
-            parsed_args.destination,
+            os.path.abspath(parsed_args.destination),
             parsed_args.sources,
             parsed_args.locales,
             parsed_args.include_mandatory
