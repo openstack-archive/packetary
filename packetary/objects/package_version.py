@@ -24,10 +24,13 @@ class PackageVersion(ComparableObject):
 
     __slots__ = ["epoch", "version", "release"]
 
-    def __init__(self, epoch, version, release):
+    def __init__(self, epoch, version, release=None):
         self.epoch = int(epoch or 0)
         self.version = tuple(version.split('.'))
-        self.release = tuple(release.split('.'))
+        if release:
+            self.release = tuple(release.split('.'))
+        else:
+            self.release = None
 
     @classmethod
     def from_string(cls, text):
@@ -35,13 +38,20 @@ class PackageVersion(ComparableObject):
 
         :param text: the version in format '[{epoch-}]-{version}-{release}'
         """
-        components = text.split("-")
-        if len(components) > 2:
-            epoch = components[0]
-            components = components[1:]
+        pos1 = text.find(':')
+        if pos1 != -1:
+            epoch = text[0:pos1]
         else:
             epoch = 0
-        return cls(epoch, components[0], components[1])
+        pos1 += 1
+        pos2 = text.find('-', pos1)
+        if pos2 != -1:
+            version = text[pos1: pos2]
+            release = text[pos2 + 1:]
+        else:
+            version = text[pos1:]
+            release = None
+        return cls(epoch, version, release)
 
     def cmp(self, other):
         if not isinstance(other, PackageVersion):
@@ -57,7 +67,9 @@ class PackageVersion(ComparableObject):
         res = self._cmp_version_part(self.version, other.version)
         if res != 0:
             return res
-        return self._cmp_version_part(self.release, other.release)
+        if self.release and other.release:
+            return self._cmp_version_part(self.release, other.release)
+        return 0
 
     def __eq__(self, other):
         if other is self:
@@ -65,11 +77,17 @@ class PackageVersion(ComparableObject):
         return self.cmp(other) == 0
 
     def __str__(self):
-        return "{0}-{1}-{2}".format(
-            self.epoch,
-            ".".join(str(x) for x in self.version),
-            ".".join(str(x) for x in self.release)
-        )
+        if self.release:
+            return "{0}:{1}-{2}".format(
+                self.epoch,
+                ".".join(str(x) for x in self.version),
+                ".".join(str(x) for x in self.release)
+            )
+        else:
+            return "{0}:{1}".format(
+                self.epoch,
+                ".".join(str(x) for x in self.version),
+            )
 
     @classmethod
     def _order(cls, x):

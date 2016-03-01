@@ -393,5 +393,5 @@ class RpmRepositoryDriver(RepositoryDriverBase):
         return PackageVersion(
             attrs.get("epoch", 0),
             attrs.get("ver", "0.0"),
-            attrs.get("rel", "0")
+            attrs.get("rel")
         )

@@ -141,7 +141,7 @@ class TestRpmDriver(base.TestCase):
             "Packages/test1.rpm", package.filename
         )
         self.assertItemsEqual(
-            ['test2 (= 0-1.1.1.1-1.el7)'],
+            ['test2 (= 0:1.1.1.1-1.el7)'],
             (str(x) for x in package.requires)
         )
         self.assertItemsEqual(
@@ -379,13 +379,13 @@ class TestRpmDriver(base.TestCase):
         )
 
         self.assertEqual("Test", pkg.name)
-        self.assertEqual("1-1.2.3-1", str(pkg.version))
+        self.assertEqual("1:1.2.3-1", str(pkg.version))
         self.assertEqual("test.rpm", pkg.filename)
         self.assertEqual((3, 4, 5), pkg.checksum)
         self.assertEqual("Group", pkg.group)
         self.assertEqual(10, pkg.filesize)
         self.assertItemsEqual(
-            ['test1 (= 0-1.2.3-1.el5)'],
+            ['test1 (= 0:1.2.3-1.el5)'],
             (str(x) for x in pkg.requires)
         )
         self.assertItemsEqual(

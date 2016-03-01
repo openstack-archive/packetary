@@ -224,16 +224,26 @@ class TestPackageVersion(base.TestCase):
         self.assertEqual(('1', '0'), ver.version)
         self.assertEqual(('22',), ver.release)
 
-        ver2 = PackageVersion.from_string("1-11.0-2")
+        ver2 = PackageVersion.from_string("1:11.0-2")
         self.assertEqual(1, ver2.epoch)
         self.assertEqual(('11', '0'), ver2.version)
         self.assertEqual(('2',), ver2.release)
 
+        ver3 = PackageVersion.from_string("11.0")
+        self.assertEqual(0, ver3.epoch)
+        self.assertEqual(('11', '0'), ver3.version)
+        self.assertIsNone(ver3.release)
+
     def test_compare(self):
         ver1 = PackageVersion.from_string("6.3-31.5")
         ver2 = PackageVersion.from_string("13.9-16.12")
+        ver3 = PackageVersion.from_string("13.9")
+        ver4 = PackageVersion.from_string("1:13.9")
         self.assertLess(ver1, ver2)
         self.assertGreater(ver2, ver1)
         self.assertEqual(ver1, ver1)
         self.assertLess(ver1, "6.3-40")
         self.assertGreater(ver1, "6.3-31.4a")
+        self.assertEqual(ver2, ver3)
+        self.assertGreater(ver4, ver3)
+        self.assertGreater(ver4, ver2)
