@@ -77,9 +77,10 @@ class RepositoryDriverBase(object):
         """
 
     @abc.abstractmethod
-    def create_repository(self, repository_data, arch):
+    def create_repository(self, connection, repository_data, arch):
         """Create new repository.
 
+        :param connection: the connection manager instance
         :param repository_data: repository input data
         :param arch: the repository`s architecture
         :return: new repository object

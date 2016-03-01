@@ -161,7 +161,7 @@ class TestRepositoryController(base.TestCase):
         self.driver.get_relative_path.side_effect = ["pool/t/test1.pkg"]
         self.ctrl.create_repository(repository_data, packages_list)
         self.driver.create_repository.assert_called_once_with(
-            repository_data, self.ctrl.arch
+            self.context.connection, repository_data, self.ctrl.arch
         )
         self.driver.get_relative_path.assert_called_once_with(
             repo, "test1.pkg"
