@@ -130,7 +130,9 @@ class RepositoryController(object):
         :param package_files: the list of paths of packages
         :return : the new repository
         """
-        repo = self.driver.create_repository(repository_data, self.arch)
+        repo = self.driver.create_repository(
+            self.context.connection, repository_data, self.arch
+        )
         packages = set()
         with self.context.async_section() as section:
             for url in package_files:

@@ -160,7 +160,7 @@ class RpmRepositoryDriver(RepositoryDriverBase):
 
     def add_packages(self, connection, repository, packages):
         groupstree = self._load_groups(connection, repository)
-        self._rebuild_repository(repository, packages, groupstree)
+        self._rebuild_repository(connection, repository, packages, groupstree)
 
     def fork_repository(self, connection, repository, destination,
                         source=False, locale=False):
@@ -170,10 +170,10 @@ class RpmRepositoryDriver(RepositoryDriverBase):
         new_repo.url = utils.normalize_repository_url(destination)
         utils.ensure_dir_exist(destination)
         groupstree = self._load_groups(connection, repository)
-        self._rebuild_repository(new_repo, None, groupstree)
+        self._rebuild_repository(connection, new_repo, set(), groupstree)
         return new_repo
 
-    def create_repository(self, repository_data, arch):
+    def create_repository(self, connection, repository_data, arch):
         repository = Repository(
             name=repository_data['name'],
             url=utils.normalize_repository_url(repository_data["uri"]),
@@ -182,7 +182,7 @@ class RpmRepositoryDriver(RepositoryDriverBase):
             origin=repository_data.get('origin')
         )
         utils.ensure_dir_exist(utils.get_path_from_url(repository.url))
-        self._rebuild_repository(repository, None, None)
+        self._rebuild_repository(connection, repository, None, None)
         return repository
 
     def load_package_from_file(self, repository, filepath):
@@ -211,24 +211,30 @@ class RpmRepositoryDriver(RepositoryDriverBase):
     def get_relative_path(self, repository, filename):
         return "packages/" + filename
 
-    def _rebuild_repository(self, repository, packages, groupstree=None):
-        basepath = utils.get_path_from_url(repository.url)
+    def _rebuild_repository(self, conn, repo, packages, groupstree=None):
+        basepath = utils.get_path_from_url(repo.url)
         self.logger.info("rebuild repository in %s", basepath)
         md_config = createrepo.MetaDataConfig()
-        update = packages is not None and \
-            os.path.exists(os.path.join(basepath, md_config.finaldir))
-
+        mdfile_path = os.path.join(
+            basepath, md_config.finaldir, md_config.repomdfile
+        )
+        update = packages is not None and os.path.exists(mdfile_path)
         groupsfile = None
+        if groupstree is None and update:
+            # The createrepo lose the groups information on update
+            # to prevent this set group info manually
+            groupstree = self._load_groups(conn, repo)
+
         if groupstree is not None:
-            with tempfile.NamedTemporaryFile(delete=False) as tmp:
-                groupstree.write(tmp)
-                groupsfile = tmp.name
+            groupsfile = os.path.join(tempfile.gettempdir(), "groups.xml")
+            with open(groupsfile, "w") as fd:
+                groupstree.write(fd)
         try:
             md_config.workers = multiprocessing.cpu_count()
             md_config.directory = str(basepath)
             md_config.groupfile = groupsfile
             md_config.update = update
-            if packages is None:
+            if not packages:
                 # only generate meta-files, without packages info
                 md_config.excludes = ["*"]
 

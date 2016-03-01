@@ -206,7 +206,7 @@ class DebRepositoryDriver(RepositoryDriverBase):
         self._create_repository_structure(new_repo)
         return new_repo
 
-    def create_repository(self, repository_data, arch):
+    def create_repository(self, connection, repository_data, arch):
         url = utils.normalize_repository_url(repository_data['uri'])
         suite = repository_data['suite']
         component = repository_data.get('section')

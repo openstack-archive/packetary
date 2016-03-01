@@ -171,12 +171,12 @@ class TestRpmDriver(base.TestCase):
         self.assertTrue(package.mandatory)
 
     @mock.patch("packetary.drivers.rpm_driver.os")
-    @mock.patch("packetary.drivers.rpm_driver.tempfile.NamedTemporaryFile")
-    def test_add_packages_to_existing(self, tmp_mock, os_mock):
+    @mock.patch("packetary.drivers.rpm_driver.open")
+    def test_add_packages_to_existing(self, open_mock, os_mock):
         self.configure_streams()
         tmp_file = mock.MagicMock()
         tmp_file.name = "/tmp/groups.gz"
-        tmp_mock.return_value.__enter__.return_value = tmp_file
+        open_mock.return_value.__enter__.return_value = tmp_file
         repo = gen_repository("test", url="file:///repo/os/x86_64")
         md_gen = mock.MagicMock()
         self.createrepo.MetaDataGenerator.return_value = md_gen
@@ -184,6 +184,11 @@ class TestRpmDriver(base.TestCase):
         md_gen.tempdir = "tmp"
         md_gen.finaldir = "repodata"
         os_mock.path.exists.return_value = True
+        os_mock.path.join.side_effect = [
+            "/repo/os/x86_64/tmp",
+            tmp_file.name,
+            "/repo/os/x86_64/tmp"
+        ]
         self.driver.add_packages(self.connection, repo, set())
         self.assertEqual(
             "/repo/os/x86_64",
@@ -202,14 +207,14 @@ class TestRpmDriver(base.TestCase):
 
     @mock.patch("packetary.drivers.rpm_driver.os")
     @mock.patch("packetary.drivers.rpm_driver.shutil")
-    @mock.patch("packetary.drivers.rpm_driver.tempfile.NamedTemporaryFile")
+    @mock.patch("packetary.drivers.rpm_driver.open")
     def test_add_packages_clean_metadata_on_error(
-            self, tmp_mock, shutil_mock, os_mock
+            self, open_mock, shutil_mock, os_mock
     ):
         self.configure_streams()
         tmp_file = mock.MagicMock()
         tmp_file.name = "/tmp/groups.gz"
-        tmp_mock.return_value.__enter__.return_value = tmp_file
+        open_mock.return_value.__enter__.return_value = tmp_file
         self.createrepo.MDError = ValueError
         md_gen = mock.MagicMock()
         self.createrepo.MetaDataGenerator.return_value = md_gen
@@ -220,7 +225,11 @@ class TestRpmDriver(base.TestCase):
         self.createrepo.MetaDataConfig().tempdir = "tmp"
         self.createrepo.MetaDataConfig().finaldir = "repodata"
         os_mock.path.exists.return_value = True
-        os_mock.path.join.side_effect = lambda *a: '/'.join(a)
+        os_mock.path.join.side_effect = [
+            "/repo/os/x86_64/tmp",
+            tmp_file.name,
+            "/repo/os/x86_64/tmp"
+        ]
         with self.assertRaises(RuntimeError):
             self.driver.add_packages(self.connection, repo, set())
         shutil_mock.rmtree.assert_called_once_with(
@@ -229,15 +238,15 @@ class TestRpmDriver(base.TestCase):
         os_mock.unlink.assert_called_once_with(tmp_file.name)
 
     @mock.patch("packetary.drivers.rpm_driver.os")
-    @mock.patch("packetary.drivers.rpm_driver.tempfile.NamedTemporaryFile")
+    @mock.patch("packetary.drivers.rpm_driver.open")
     @mock.patch("packetary.drivers.rpm_driver.utils.ensure_dir_exist")
-    def test_fork_repository(
-            self, ensure_dir_exists_mock, tmp_mock, os_mock
+    def test_fork_repository_to_empty_destination(
+            self, m_ensure_dir_exists, m_open, m_os
     ):
         self.configure_streams()
         tmp_file = mock.MagicMock()
         tmp_file.name = "/tmp/groups.gz"
-        tmp_mock.return_value.__enter__.return_value = tmp_file
+        m_open.return_value.__enter__.return_value = tmp_file
         repo = gen_repository("os", url="http://localhost/os/x86_64/")
         md_gen = mock.MagicMock()
         self.createrepo.MetaDataGenerator.return_value = md_gen
@@ -247,12 +256,18 @@ class TestRpmDriver(base.TestCase):
         md_gen.finaldir = "repodata"
         md_config = mock.MagicMock()
         self.createrepo.MetaDataConfig.return_value = md_config
+        m_os.path.join.side_effect = [
+            "/repo/os/x86_64/repodata/repomd.xml",
+            tmp_file.name,
+            "/repo/os/x86_64/tmp"
+        ]
+        m_os.path.exists.return_value = False
         new_repo = self.driver.fork_repository(
             self.connection,
             repo,
             "/repo/os/x86_64"
         )
-        ensure_dir_exists_mock.assert_called_once_with("/repo/os/x86_64")
+        m_ensure_dir_exists.assert_called_once_with("/repo/os/x86_64")
         self.assertEqual(repo.name, new_repo.name)
         self.assertEqual(repo.architecture, new_repo.architecture)
         self.assertEqual("file:///repo/os/x86_64/", new_repo.url)
@@ -261,13 +276,51 @@ class TestRpmDriver(base.TestCase):
         self.assertEqual(["*"], md_config.excludes)
         self.assertFalse(md_config.update)
         self.assertEqual(tmp_file.name, md_config.groupfile)
-        os_mock.unlink.assert_called_once_with(tmp_file.name)
+        m_open.assert_called_once_with(tmp_file.name, "w")
+        m_os.unlink.assert_called_once_with(tmp_file.name)
 
     @mock.patch("packetary.drivers.rpm_driver.os")
-    @mock.patch("packetary.drivers.rpm_driver.tempfile.NamedTemporaryFile")
+    @mock.patch("packetary.drivers.rpm_driver.open")
+    @mock.patch("packetary.drivers.rpm_driver.utils.ensure_dir_exist")
+    def test_fork_repository_to_existing_destination(
+            self, ensure_dir_exists_mock, open_mock, os_mock
+    ):
+        self.configure_streams()
+        tmp_file = mock.MagicMock()
+        tmp_file.name = "/tmp/groups.gz"
+        open_mock.return_value.__enter__.return_value = tmp_file
+        repo = gen_repository("os", url="http://localhost/os/x86_64/")
+        md_gen = mock.MagicMock()
+        self.createrepo.MetaDataGenerator.return_value = md_gen
+        md_gen.doFinalMove.side_effect = [None]
+        md_gen.outputdir = "/repo/os/x86_64"
+        md_gen.tempdir = "tmp"
+        md_gen.finaldir = "repodata"
+        md_config = mock.MagicMock()
+        self.createrepo.MetaDataConfig.return_value = md_config
+        os_mock.path.join.side_effect = [
+            "/repo/os/x86_64/repodata/repomd.xml",
+            tmp_file.name,
+            "/repo/os/x86_64/tmp"
+        ]
+        os_mock.path.exists.return_value = True
+        groups_xml = mock.MagicMock()
+        with mock.patch.object(self.driver, "_load_groups") as load_mock:
+            load_mock.side_effect = [None, groups_xml]
+            self.driver.fork_repository(
+                self.connection,
+                repo,
+                "/repo/os/x86_64"
+            )
+        self.assertEqual(tmp_file.name, md_config.groupfile)
+        os_mock.unlink.assert_called_once_with(tmp_file.name)
+        groups_xml.write.assert_called_once_with(tmp_file)
+
+    @mock.patch("packetary.drivers.rpm_driver.os")
+    @mock.patch("packetary.drivers.rpm_driver.open")
     @mock.patch("packetary.drivers.rpm_driver.utils.ensure_dir_exist")
     def test_create_repository(
-            self, ensure_dir_exists_mock, tmp_mock, os_mock
+            self, ensure_dir_exists_mock, open_mock, os_mock
     ):
         repository_data = {
             "name": "Test", "uri": "file:///repo/os/x86_64", "origin": "Test",
@@ -283,7 +336,9 @@ class TestRpmDriver(base.TestCase):
         md_config = mock.MagicMock()
         self.createrepo.MetaDataConfig.return_value = md_config
 
-        repo = self.driver.create_repository(repository_data, "x86_64")
+        repo = self.driver.create_repository(
+            self.connection, repository_data, "x86_64"
+        )
         ensure_dir_exists_mock.assert_called_once_with("/repo/os/x86_64/")
         self.assertEqual(repository_data["name"], repo.name)
         self.assertEqual("x86_64", repo.architecture)
@@ -293,6 +348,8 @@ class TestRpmDriver(base.TestCase):
         md_gen.doFinalMove.assert_called_once_with()
         self.assertEqual(["*"], md_config.excludes)
         self.assertFalse(md_config.update)
+        open_mock.assert_not_called()
+        os_mock.unlink.assert_not_called()
 
     @mock.patch("packetary.drivers.rpm_driver.utils")
     def test_load_package_from_file(self, utils):
