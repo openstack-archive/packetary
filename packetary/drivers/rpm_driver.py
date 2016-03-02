@@ -145,7 +145,7 @@ class RpmRepositoryDriver(RepositoryDriverBase):
                     mandatory=name in mandatory,
                     requires=self._get_relations(tag, "requires"),
                     obsoletes=self._get_relations(tag, "obsoletes"),
-                    provides=self._get_relations(tag, "provides"),
+                    provides=self._get_provides_from_xml(tag),
                     group=tag.find("./main:format/rpm:group",
                                    _NAMESPACES).text,
                 ))
@@ -204,7 +204,7 @@ class RpmRepositoryDriver(RepositoryDriverBase):
             mandatory=False,
             requires=self._parse_package_relations(pkg.requires),
             obsoletes=self._parse_package_relations(pkg.obsoletes),
-            provides=self._parse_package_relations(pkg.provides),
+            provides=self._get_provides_from_rpm(pkg),
             group=hdr["group"],
         )
 
@@ -323,6 +323,34 @@ class RpmRepositoryDriver(RepositoryDriverBase):
         self.logger.info("detected %d mandatory packages.", count)
         return package_names
 
+    def _get_provides_from_xml(self, pkg_tag):
+        """Gets the package provides from package tag.
+
+        Tag provides contains virtual packages.
+        Tag files contains binary files that is provided by package.
+
+        :param pkg_tag: the xml-tag with package description
+        :return: list of PackageRelation objects
+        """
+        provides = self._get_relations(pkg_tag, "provides")
+        files_iter = pkg_tag.iterfind("./main:format/main:file", _NAMESPACES)
+        append = provides.append
+        for file_tag in files_iter:
+            append(PackageRelation(file_tag.text))
+        return provides
+
+    def _get_provides_from_rpm(self, pkg):
+        """Gets the package provides from YumPackage.
+
+        :param pkg: the YumPackage Instance
+        :return: list of PackageRelation objects
+        """
+        provides = self._parse_package_relations(pkg.provides)
+        append = provides.append
+        for filename in pkg.returnFileEntries('file', True):
+            append(PackageRelation(filename))
+        return provides
+
     def _get_relations(self, pkg_tag, name):
         """Gets package relations by name from package tag.
 
@@ -373,11 +401,13 @@ class RpmRepositoryDriver(RepositoryDriverBase):
         :param attrs: the relation tag attributes
         :return tuple(name, version_op, version_edge)
         """
+
+        name = attrs['name']
         if "flags" not in attrs:
-            return attrs['name'], None
+            return name, None
 
         return (
-            attrs['name'],
+            name,
             _OPERATORS_MAPPING[attrs["flags"]],
             self._unparse_version_attrs(attrs)
         )

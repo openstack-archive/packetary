@@ -27,6 +27,8 @@
       <rpm:obsoletes>
         <rpm:entry name="test-old"/>
       </rpm:obsoletes>
+      <file>/usr/bin/test1</file>
+      <file>/usr/bin/test1-bin</file>
     </format>
   </package>
   <package type="rpm">

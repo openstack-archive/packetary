@@ -145,7 +145,7 @@ class TestRpmDriver(base.TestCase):
             (str(x) for x in package.requires)
         )
         self.assertItemsEqual(
-            ["file (any)"],
+            ["file (any)", "/usr/bin/test1 (any)", "/usr/bin/test1-bin (any)"],
             (str(x) for x in package.provides)
         )
         self.assertItemsEqual(
@@ -361,6 +361,7 @@ class TestRpmDriver(base.TestCase):
             provides=[('test2', None, (None, None, None))],
             obsoletes=[]
         )
+        rpm_mock.returnFileEntries.return_value = ["/usr/bin/test"]
         self.createrepo.yumbased.YumLocalPackage.return_value = rpm_mock
         rpm_mock.returnLocalHeader.return_value = {
             "name": "Test", "epoch": 1, "version": "1.2.3", "release": "1",
@@ -389,7 +390,7 @@ class TestRpmDriver(base.TestCase):
             (str(x) for x in pkg.requires)
         )
         self.assertItemsEqual(
-            ['test2 (any)'],
+            ['test2 (any)', "/usr/bin/test (any)"],
             (str(x) for x in pkg.provides)
         )
         self.assertEqual([], pkg.obsoletes)
