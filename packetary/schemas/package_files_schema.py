@@ -21,6 +21,6 @@ PACKAGE_FILES_SCHEMA = {
     "type": "array",
     "items": {
         "type": "string",
-        "pattern": "^(\/|file:\/\/|https?:\/\/).+$"
+        "pattern": r"^(/|file:///|https?://).+$"
     }
 }

@@ -310,10 +310,12 @@ class RepositoryApi(object):
         try:
             jsonschema.validate(data, schema)
         except jsonschema.ValidationError as e:
-            self._raise_validation_error("data", e.message, e.absolute_path)
+            self._raise_validation_error(
+                "data", e.message, e.path
+            )
         except jsonschema.SchemaError as e:
             self._raise_validation_error(
-                "schema", e.message, e.absolute_schema_path
+                "schema", e.message, e.path
             )
 
     @staticmethod
