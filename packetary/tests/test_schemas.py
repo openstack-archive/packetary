@@ -251,9 +251,8 @@ class TestPackageFilesSchema(base.TestCase):
 
     def test_valid_file_urls(self):
         file_urls = [
-            "file://test1.pkg",
-            "file:///test2.pkg",
-            "/test3.pkg",
+            "file:///test1.pkg",
+            "/test2.pkg",
             "http://test4.pkg",
             "https://test5.pkg"
         ]
