@@ -251,9 +251,8 @@ class TestPackageFilesSchema(base.TestCase):
 
     def test_valid_file_urls(self):
         file_urls = [
-            "file://test1.pkg",
-            "file:///test2.pkg",
-            "/test3.pkg",
+            "file:///test1.pkg",
+            "/test2.pkg",
             "http://test4.pkg",
             "https://test5.pkg"
         ]
@@ -278,10 +277,11 @@ class TestPackageFilesSchema(base.TestCase):
 
     def test_validation_fail_if_invalid_file_urls(self):
         file_urls = [
-            ["test1.pkg"],        # does not match pattern
-            ["./test2.pkg"],      # does not match pattern
-            ["file//test3.pkg"],  # does not match pattern
-            ["http//test4.pkg"]   # does not match pattern
+            ["test1.pkg"],
+            ["./test2.pkg"],
+            ["file//test3.pkg"],
+            ["http//test4.pkg"],
+            ["file://test4.pkg"]
         ]
 
         for url in file_urls[2:]:
