@@ -21,12 +21,14 @@ import pbr.version
 from packetary.api import Configuration
 from packetary.api import Context
 from packetary.api import RepositoryApi
+from packetary.api import PackagingApi
 
 
 __all__ = [
     "Configuration",
     "Context",
     "RepositoryApi",
+    "PackagingApi",
 ]
 
 try:
