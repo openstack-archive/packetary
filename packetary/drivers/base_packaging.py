@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-#    Copyright 2015 Mirantis, Inc.
+#    Copyright 2016 Mirantis, Inc.
 #
 #    This program is free software; you can redistribute it and/or modify
 #    it under the terms of the GNU General Public License as published by
@@ -16,11 +16,29 @@
 #    with this program; if not, write to the Free Software Foundation, Inc.,
 #    51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 
-from packetary.controllers.packaging import PackagingController
-from packetary.controllers.repository import RepositoryController
+import abc
+import logging
+import six
 
 
-__all__ = [
-    "PackagingController",
-    "RepositoryController",
-]
+@six.add_metaclass(abc.ABCMeta)
+class PackagingDriverBase(object):
+    """The super class for Packaging Drivers.
+
+    For implementing support of new type of packaging:
+    - inherit this class
+    - implement all abstract methods
+    - register implementation in 'packetary.drivers' namespace
+    """
+
+    def __init__(self):
+        self.logger = logging.getLogger(__package__)
+
+    @abc.abstractmethod
+    def build_packages(self, release, sources):
+        """Build package from sources
+
+        :param release: release like 'centos-7-x86_64'
+        :param sources: path to sources
+        :return: list of builded packages
+        """
