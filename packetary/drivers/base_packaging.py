@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-#    Copyright 2015 Mirantis, Inc.
+#    Copyright 2016 Mirantis, Inc.
 #
 #    This program is free software; you can redistribute it and/or modify
 #    it under the terms of the GNU General Public License as published by
@@ -16,23 +16,30 @@
 #    with this program; if not, write to the Free Software Foundation, Inc.,
 #    51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 
-import pbr.version
+import abc
+import logging
 
-from packetary.api import Configuration
-from packetary.api import Context
-from packetary.api import RepositoryApi
-from packetary.api import PackagingApi
+import six
 
 
-__all__ = [
-    "Configuration",
-    "Context",
-    "RepositoryApi",
-    "PackagingApi",
-]
+@six.add_metaclass(abc.ABCMeta)
+class PackagingDriverBase(object):
+    """The super class for Packaging Drivers.
 
-try:
-    __version__ = pbr.version.VersionInfo(
-        'packetary').version_string()
-except Exception as e:
-    __version__ = "0.0.0"
+    For implementing support of new type of packaging:
+    - inherit this class
+    - implement all abstract methods
+    - register implementation in 'packetary.drivers' namespace
+    """
+
+    def __init__(self):
+        self.logger = logging.getLogger(__package__)
+
+    @abc.abstractmethod
+    def build_packages(self, release,  sources):
+        """ Build package from sources
+
+        :param release: release like 'centos-7-x86_64'
+        :param sources: path to sources
+        :return: list of builded packages
+        """

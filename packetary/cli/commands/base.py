@@ -24,16 +24,20 @@ import six
 from packetary.cli.commands.utils import make_display_attr_getter
 from packetary.cli.commands.utils import read_from_file
 from packetary import RepositoryApi
-
+from packetary import PackagingApi
 
 @six.add_metaclass(abc.ABCMeta)
-class BaseRepoCommand(command.Command):
+class BaseCommand(command.Command):
     """Super class for packetary commands."""
 
     @property
     def stdout(self):
         """Shortcut for self.app.stdout."""
         return self.app.stdout
+
+
+class BaseRepoCommand(BaseCommand):
+    """Class for repo commands."""
 
     def get_parser(self, prog_name):
         """Specifies common options."""
@@ -218,3 +222,36 @@ class BaseProduceOutputCommand(BaseRepoCommand):
     @abc.abstractmethod
     def take_repo_action(self, driver, parsed_args):
         """See Command.take_repo_action."""
+
+
+class BasePackagingCommand(BaseCommand):
+
+    def get_parser(self, prog_name):
+        """Specifies common options."""
+
+        parser = super(BasePackagingCommand, self).get_parser(prog_name)
+        parser.add_argument(
+            '-t', '--type',
+            type=str,
+            required=False,
+            choices=['rpm', 'deb'],
+            metavar='TYPE',
+            default='rpm',
+            help='The type of package.'
+        )
+
+        return parser
+
+    def take_action(self, parsed_args):
+        """See the Command.take_action.
+
+        :param parsed_args: the command-line arguments
+        :return: the result of take_repo_action
+        :rtype: object
+        """
+        return self.take_package_action(
+            PackagingApi.create(
+                parsed_args.type,
+            ),
+            parsed_args
+        )
