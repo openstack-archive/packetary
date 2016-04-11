@@ -17,7 +17,9 @@
 #    51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 
 from packetary.controllers.repository import RepositoryController
+from packetary.controllers.packaging import PackagingController
 
 __all__ = [
-    "RepositoryController"
+    "PackagingController",
+    "RepositoryController",
 ]
