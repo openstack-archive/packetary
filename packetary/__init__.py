@@ -20,6 +20,7 @@ import pbr.version
 
 from packetary.api import Configuration
 from packetary.api import Context
+from packetary.api import PackagingApi
 from packetary.api import RepositoryApi
 
 
@@ -27,6 +28,7 @@ __all__ = [
     "Configuration",
     "Context",
     "RepositoryApi",
+    "PackagingApi",
 ]
 
 try:
