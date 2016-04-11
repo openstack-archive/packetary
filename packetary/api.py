@@ -24,6 +24,7 @@ import jsonschema
 import six
 
 from packetary.controllers import RepositoryController
+from packetary.controllers import PackagingController
 from packetary.library.connections import ConnectionsManager
 from packetary.library.executor import AsynchronousSection
 from packetary.objects import PackageRelation
@@ -326,3 +327,30 @@ class RepositoryApi(object):
                 "][".join(repr(p) for p in path)
             )
         raise ValueError(message)
+
+
+class PackagingApi(object):
+    """Provides high-level API to build packages."""
+
+    def __init__(self, controller):
+        """Initialises.
+
+        :param controller: the packaging controller.
+        """
+        self.controller = controller
+
+    @classmethod
+    def build(cls, pkg_type):
+        """Creates the packaging API instance.
+
+        :param config: the configuration
+        :param repotype: the kind of repository(deb, yum, etc)
+        :param repoarch: the architecture of repository (x86_64 or i386)
+        """
+        return cls(PackagingController.load(pkg_type))
+
+    def build_package(self, release, sources):
+        """Build new package.
+
+        """
+        return self.controller.build_package(release, sources)
