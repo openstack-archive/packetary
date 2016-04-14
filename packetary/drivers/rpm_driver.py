@@ -230,7 +230,7 @@ class RpmRepositoryDriver(RepositoryDriverBase):
             with open(groupsfile, "w") as fd:
                 groupstree.write(fd)
         try:
-            md_config.workers = multiprocessing.cpu_count()
+            md_config.workers = 1
             md_config.directory = str(basepath)
             md_config.groupfile = groupsfile
             md_config.update = update
