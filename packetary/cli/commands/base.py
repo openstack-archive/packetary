@@ -23,7 +23,8 @@ import six
 
 from packetary.cli.commands.utils import make_display_attr_getter
 from packetary.cli.commands.utils import read_from_file
-from packetary import RepositoryApi
+
+from packetary import api
 
 
 @six.add_metaclass(abc.ABCMeta)
@@ -66,17 +67,17 @@ class BaseRepoCommand(command.Command):
         :rtype: object
         """
         return self.take_repo_action(
-            RepositoryApi.create(
+            api.RepositoryApi.create(
                 self.app_args, parsed_args.type, parsed_args.arch
             ),
             parsed_args
         )
 
     @abc.abstractmethod
-    def take_repo_action(self, api, parsed_args):
+    def take_repo_action(self, repo_api, parsed_args):
         """Takes action on repository.
 
-        :param api: the RepositoryApi instance
+        :param repo_api: the RepositoryApi instance
         :param parsed_args: the command-line arguments
         :return: the action result
         """
@@ -104,30 +105,11 @@ class PackagesMixin(object):
     def get_parser(self, prog_name):
         parser = super(PackagesMixin, self).get_parser(prog_name)
         parser.add_argument(
-            "--skip-mandatory",
-            dest='include_mandatory',
-            action='store_false',
-            default=True,
-            help="Do not copy mandatory packages."
-        )
-
-        group = parser.add_mutually_exclusive_group()
-
-        group.add_argument(
-            "-p", "--packages",
+            "-R", "--requirements",
             dest='requirements',
             type=read_from_file,
             metavar='FILENAME',
             help="The path to file with list of packages."
-                 "See documentation about format."
-        )
-
-        group.add_argument(
-            "-f", "--exclude-filter",
-            dest='exclude_filter_data',
-            type=read_from_file,
-            metavar='FILENAME',
-            help="The path to file with package exclude filter data."
                  "See documentation about format."
         )
         return parser

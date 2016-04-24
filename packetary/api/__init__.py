@@ -16,27 +16,14 @@
 #    with this program; if not, write to the Free Software Foundation, Inc.,
 #    51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 
-PACKAGES_SCHEMA = {
-    "$schema": "http://json-schema.org/draft-04/schema#",
-    "type": "array",
-    "items": {
-        "type": "object",
-        "required": [
-            "name"
-        ],
-        "properties": {
-            "name": {
-                "type": "string"
-            },
-            "versions": {
-                "type": "array",
-                "items": [
-                    {
-                        "type": "string",
-                        "pattern": "^([<>]=?|=)\s+.+$"
-                    }
-                ]
-            }
-        }
-    }
-}
+from packetary.api.context import Configuration
+from packetary.api.context import Context
+from packetary.api.options import RepositoryCopyOptions
+from packetary.api.repositories import RepositoryApi
+
+__all__ = [
+    "Configuration",
+    "Context",
+    "RepositoryApi",
+    "RepositoryCopyOptions",
+]

@@ -22,7 +22,8 @@ from packetary.cli.commands.base import RepositoriesMixin
 
 
 class ListOfPackages(
-    PackagesMixin, RepositoriesMixin, BaseProduceOutputCommand):
+        PackagesMixin, RepositoriesMixin, BaseProduceOutputCommand):
+
     """Gets the list of packages from repository(es)."""
 
     columns = (
@@ -37,12 +38,10 @@ class ListOfPackages(
         "requires",
     )
 
-    def take_repo_action(self, api, parsed_args):
-        return api.get_packages(
+    def take_repo_action(self, repo_api, parsed_args):
+        return repo_api.get_packages(
             parsed_args.repositories,
-            parsed_args.requirements,
-            parsed_args.include_mandatory,
-            filter_data=parsed_args.exclude_filter_data,
+            parsed_args.requirements
         )
 
 
