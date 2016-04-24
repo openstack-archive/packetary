@@ -43,8 +43,8 @@ class CreateCommand(BaseRepoCommand):
         )
         return parser
 
-    def take_repo_action(self, api, parsed_args):
-        api.create_repository(
+    def take_repo_action(self, repo_api, parsed_args):
+        repo_api.create_repository(
             parsed_args.repository,
             parsed_args.package_files
         )

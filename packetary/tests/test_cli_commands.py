@@ -16,8 +16,9 @@
 #    with this program; if not, write to the Free Software Foundation, Inc.,
 #    51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 
-import mock
 import subprocess
+
+import mock
 
 # The cmd2 does not work with python3.5
 # because it tries to get access to the property mswindows,
@@ -29,7 +30,7 @@ from packetary.cli.commands import clone
 from packetary.cli.commands import create
 from packetary.cli.commands import packages
 from packetary.cli.commands import unresolved
-from packetary.objects.statistics import CopyStatistics
+from packetary.api.statistics import CopyStatistics
 from packetary.tests import base
 from packetary.tests.stubs.generator import gen_package
 from packetary.tests.stubs.generator import gen_relation
@@ -38,7 +39,7 @@ from packetary.tests.stubs.generator import gen_repository
 
 @mock.patch("packetary.cli.commands.base.BaseRepoCommand.stdout")
 @mock.patch("packetary.cli.commands.base.read_from_file")
-@mock.patch("packetary.cli.commands.base.RepositoryApi")
+@mock.patch("packetary.cli.commands.base.api.RepositoryApi")
 class TestCliCommands(base.TestCase):
     common_argv = [
         "--ignore-errors-num=3",
@@ -51,11 +52,10 @@ class TestCliCommands(base.TestCase):
 
     clone_argv = [
         "-r", "repositories.yaml",
-        "-p", "packages.yaml",
+        "-R", "requirements.yaml",
         "-d", "/root",
         "-t", "deb",
         "-a", "x86_64",
-        "--skip-mandatory"
     ]
 
     create_argv = [
@@ -95,7 +95,7 @@ class TestCliCommands(base.TestCase):
     def test_clone_cmd(self, api_mock, read_file_mock, stdout_mock):
         read_file_mock.side_effect = [
             [{"name": "repo"}],
-            [{"name": "package"}],
+            {'packages': [{"name": "package"}]},
         ]
         api_instance = self.get_api_instance_mock(api_mock)
         api_instance.clone_repositories.return_value = CopyStatistics()
@@ -105,13 +105,13 @@ class TestCliCommands(base.TestCase):
         )
         self.check_common_config(api_mock.create.call_args[0][0])
         read_file_mock.assert_any_call("repositories.yaml")
-        read_file_mock.assert_any_call("packages.yaml")
+        read_file_mock.assert_any_call("requirements.yaml")
         api_instance.clone_repositories.assert_called_once_with(
-            [{"name": "repo"}], [{"name": "package"}], "/root",
-            False,
-            False,
-            False,
-            filter_data=None,
+            [{"name": "repo"}], "/root", {'packages': [{"name": "package"}]},
+            api_instance.CopyOptions.return_value
+        )
+        api_instance.CopyOptions.assert_called_once_with(
+            sources=False, localizations=False,
         )
         stdout_mock.write.assert_called_once_with(
             "Packages copied: 0/0.\n"
@@ -132,7 +132,7 @@ class TestCliCommands(base.TestCase):
         )
         self.check_common_config(api_mock.create.call_args[0][0])
         api_instance.get_packages.assert_called_once_with(
-            [{"name": "repo"}], None, True, filter_data=None
+            [{"name": "repo"}], None
         )
         self.assertIn(
             "test1; test1.pkg",
