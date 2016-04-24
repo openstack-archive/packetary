@@ -18,14 +18,14 @@
 
 import jsonschema
 
-from packetary.schemas import DEB_REPO_SCHEMA
-from packetary.schemas import PACKAGE_FILES_SCHEMA
-from packetary.schemas import PACKAGES_SCHEMA
-from packetary.schemas import RPM_REPO_SCHEMA
+from packetary import schemas
+
 from packetary.tests import base
 
 
 class TestRepositorySchemaBase(base.TestCase):
+    schema = None
+
     def check_invalid_name(self):
         self._check_invalid_type('name')
 
@@ -78,7 +78,7 @@ class TestRepositorySchemaBase(base.TestCase):
 
 class TestDebRepoSchema(TestRepositorySchemaBase):
     def setUp(self):
-        self.schema = DEB_REPO_SCHEMA
+        self.schema = schemas.DEB_REPO_SCHEMA
 
     def test_valid_repo_data(self):
         repo_data = {
@@ -142,7 +142,7 @@ class TestDebRepoSchema(TestRepositorySchemaBase):
 
 class TestRpmRepoSchema(TestRepositorySchemaBase):
     def setUp(self):
-        self.schema = RPM_REPO_SCHEMA
+        self.schema = schemas.RPM_REPO_SCHEMA
 
     def test_valid_repo_data(self):
         repo_data = {
@@ -170,62 +170,44 @@ class TestRpmRepoSchema(TestRepositorySchemaBase):
         self.check_invalid_path()
 
 
-class TestPackagesSchema(base.TestCase):
+class TestRequirementsSchema(base.TestCase):
+
     def setUp(self):
-        self.schema = PACKAGES_SCHEMA
+        self.schema = schemas.REQUIREMENTS_SCHEMA
 
     def test_valid_requirements_data(self):
-        requirements_data = [
-            {"name": "test1", "versions": [">= 1.1.2", "<= 3"]},
-            {"name": "test2", "versions": ["< 3", "> 1", ">= 4"]},
-            {"name": "test3", "versions": ["= 3"]},
-            {"name": "test4", "versions": ["=     3"]},
-            {"name": "test4"}
-        ]
+        requirements_data = {
+            "packages": [
+                {"name": "test1", "versions": [">= 1.1.2", "<= 3"]},
+                {"name": "test2", "versions": ["< 3", "> 1", ">= 4"]},
+                {"name": "test3", "versions": ["= 3"]},
+                {"name": "test4", "versions": ["=     3"]},
+                {"name": "test4"}
+            ],
+            "repositories": [
+                {"name": "repo1", "excludes": [{"name": "/a.+/"}]},
+                {"name": "repo1", "excludes": [{"group": "debug"}]},
+                {"name": "repo1"}
+            ],
+            "all_mandatory": True,
+            "options": ["localizations", "sources"]
+        }
         self.assertNotRaises(
             jsonschema.ValidationError, jsonschema.validate, requirements_data,
             self.schema
         )
 
-    def test_validation_fail_for_required_properties(self):
-        requirements_data = [
-            [{"versions": ["< 3", "> 1"]}]
+    def test_validation_fail_if_missed_required_properties(self):
+        test_data = [
+            {},
+            {"packages": [{"version": "=2.0.0"}]},
+            {"repositories": [{"excludes": [{"name": "test"}]}]},
         ]
-        for data in requirements_data:
-            self.assertRaisesRegexp(
-                jsonschema.ValidationError,
-                "is a required property",
-                jsonschema.validate, data, self.schema
+        for data in test_data:
+            self.assertRaises(
+                jsonschema.ValidationError, jsonschema.validate,
+                data, self.schema
             )
-
-    def test_validation_fail_if_name_is_invalid(self):
-        requirements_data = [
-            {"name": 123, "versions": [">= 1.1.2", "<= 3"]},
-        ]
-        self.assertRaisesRegexp(
-            jsonschema.ValidationError, "123 is not of type 'string'",
-            jsonschema.validate, requirements_data, self.schema
-        )
-
-    def test_validation_fail_if_versions_not_array(self):
-        requirements_data = [
-            {"name": "test1", "versions": 123}
-        ]
-        self.assertRaisesRegexp(
-            jsonschema.ValidationError, "123 is not of type 'array'",
-            jsonschema.validate, requirements_data,
-            self.schema
-        )
-
-    def test_validation_fail_if_versions_not_string(self):
-        requirements_data = [
-            {"name": "test1", "versions": [123]}
-        ]
-        self.assertRaisesRegexp(
-            jsonschema.ValidationError, "123 is not of type 'string'",
-            jsonschema.validate, requirements_data,
-            self.schema
-        )
 
     def test_validation_fail_if_versions_not_match(self):
         versions = [
@@ -240,14 +222,15 @@ class TestPackagesSchema(base.TestCase):
         for version in versions:
             self.assertRaisesRegexp(
                 jsonschema.ValidationError, "does not match",
-                jsonschema.validate, version,
-                self.schema['items']['properties']['versions']
+                jsonschema.validate,
+                {"packages": [{"name": "test", "versions": version}]},
+                self.schema
             )
 
 
 class TestPackageFilesSchema(base.TestCase):
     def setUp(self):
-        self.schema = PACKAGE_FILES_SCHEMA
+        self.schema = schemas.PACKAGE_FILES_SCHEMA
 
     def test_valid_file_urls(self):
         file_urls = [

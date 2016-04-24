@@ -26,6 +26,8 @@ class TestCase(unittest.TestCase):
 
     """Test case base class for all unit tests."""
 
+    maxDiff = None
+
     def _check_cases(self, assertion, cases, method):
         for exp, value in cases:
             assertion(
