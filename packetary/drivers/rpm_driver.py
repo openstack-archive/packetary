@@ -162,8 +162,7 @@ class RpmRepositoryDriver(RepositoryDriverBase):
         groupstree = self._load_groups(connection, repository)
         self._rebuild_repository(connection, repository, packages, groupstree)
 
-    def fork_repository(self, connection, repository, destination,
-                        source=False, locale=False):
+    def fork_repository(self, connection, repository, destination, options):
         # TODO(download gpk)
         # TODO(sources and locales)
         new_repo = copy.copy(repository)

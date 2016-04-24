@@ -265,7 +265,8 @@ class TestRpmDriver(base.TestCase):
         new_repo = self.driver.fork_repository(
             self.connection,
             repo,
-            "/repo/os/x86_64"
+            "/repo/os/x86_64",
+            None
         )
         m_ensure_dir_exists.assert_called_once_with("/repo/os/x86_64")
         self.assertEqual(repo.name, new_repo.name)
@@ -310,7 +311,8 @@ class TestRpmDriver(base.TestCase):
             self.driver.fork_repository(
                 self.connection,
                 repo,
-                "/repo/os/x86_64"
+                "/repo/os/x86_64",
+                None
             )
         self.assertEqual(tmp_file.name, md_config.groupfile)
         os_mock.unlink.assert_called_once_with(tmp_file.name)

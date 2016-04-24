@@ -197,8 +197,7 @@ class DebRepositoryDriver(RepositoryDriverBase):
         self.logger.info("saved %d packages in %s", count, repository)
         self._update_suite_index(repository)
 
-    def fork_repository(self, connection, repository, destination,
-                        source=False, locale=False):
+    def fork_repository(self, connection, repository, destination, options):
         # TODO(download gpk)
         # TODO(sources and locales)
         new_repo = copy.copy(repository)

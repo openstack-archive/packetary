@@ -84,13 +84,12 @@ class RepositoryController(object):
         connection = self.context.connection
         self.driver.get_packages(connection, repository, consumer)
 
-    def fork_repository(self, repository, destination, source, locale):
+    def fork_repository(self, repository, destination, options):
         """Creates copy of repositories.
 
         :param repository: the origin repository
         :param destination: the target folder
-        :param source: If True, the source packages will be copied too.
-        :param locale: If True, the localisation will be copied too.
+        :param options: The options, see RepositoryCopyOptions
         :return: the mapping origin to cloned repository.
         """
         new_path = os.path.join(
@@ -101,7 +100,7 @@ class RepositoryController(object):
         )
         logger.info("cloning repository '%s' to '%s'", repository, new_path)
         return self.driver.fork_repository(
-            self.context.connection, repository, new_path, source, locale
+            self.context.connection, repository, new_path, options
         )
 
     def assign_packages(self, repository, packages, observer=None):

@@ -29,8 +29,8 @@ class ListOfUnresolved(RepositoriesMixin, BaseProduceOutputCommand):
         "alternative",
     )
 
-    def take_repo_action(self, api, parsed_args):
-        return api.get_unresolved_dependencies(
+    def take_repo_action(self, repo_api, parsed_args):
+        return repo_api.get_unresolved_dependencies(
             parsed_args.repositories
         )
 

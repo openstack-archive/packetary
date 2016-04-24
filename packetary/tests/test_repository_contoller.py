@@ -60,7 +60,7 @@ class TestRepositoryController(base.TestCase):
 
         repos = self.ctrl.load_repositories([repo_data])
         self.driver.get_repository.assert_called_once_with(
-            self.context.connection, repo_data, self.ctrl.arch
+            self.context.connection, repo_data, self.ctrl.arch, mock.ANY
         )
         self.assertEqual([repo], repos)
 
@@ -93,14 +93,14 @@ class TestRepositoryController(base.TestCase):
         clone.url = "/root/repo"
         self.driver.fork_repository.return_value = clone
         self.context.connection.retrieve.side_effect = [0, 10]
-        self.ctrl.fork_repository(repo, "./repo", False, False)
+        self.ctrl.fork_repository(repo, "./repo", None)
         self.driver.fork_repository.assert_called_once_with(
-            self.context.connection, repo, "./repo/test", False, False
+            self.context.connection, repo, "./repo/test", None
         )
         repo.path = "os"
-        self.ctrl.fork_repository(repo, "./repo", False, False)
+        self.ctrl.fork_repository(repo, "./repo", None)
         self.driver.fork_repository.assert_called_with(
-            self.context.connection, repo, "./repo/os", False, False
+            self.context.connection, repo, "./repo/os", None
         )
 
     def test_copy_packages(self):

@@ -230,7 +230,7 @@ class TestDebDriver(base.TestCase):
         ]
         open.side_effect = files
         new_repo = self.driver.fork_repository(
-            self.connection, self.repo, "/root/test"
+            self.connection, self.repo, "/root/test", None
         )
         self.assertEqual(self.repo.name, new_repo.name)
         self.assertEqual(self.repo.architecture, new_repo.architecture)

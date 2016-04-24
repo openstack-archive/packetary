@@ -16,18 +16,11 @@
 #    with this program; if not, write to the Free Software Foundation, Inc.,
 #    51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 
-PACKAGE_FILTER_SCHEMA = {
-    "$schema": "http://json-schema.org/draft-04/schema#",
-    "type": "array",
-    "items": {
-        "type": "object",
-        "properties": {
-            "name": {
-                "type": "string"
-            },
-            "group": {
-                "type": "string"
-            }
-        }
-    }
-}
+
+def compose(*functions):
+    """Call all functions with same arguments."""
+
+    def wrapper(*args, **kwargs):
+        for f in functions:
+            f(*args, **kwargs)
+    return wrapper
