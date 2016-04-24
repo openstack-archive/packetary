@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-#    Copyright 2015 Mirantis, Inc.
+#    Copyright 2016 Mirantis, Inc.
 #
 #    This program is free software; you can redistribute it and/or modify
 #    it under the terms of the GNU General Public License as published by
@@ -16,12 +16,8 @@
 #    with this program; if not, write to the Free Software Foundation, Inc.,
 #    51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 
-import pbr.version
 
-from packetary import api
-
-try:
-    __version__ = pbr.version.VersionInfo(
-        'packetary').version_string()
-except Exception:
-    __version__ = "0.0.0"
+class RepositoryCopyOptions(object):
+    def __init__(self, sources=False, localizations=False):
+        self.sources = sources
+        self.localizations = localizations
