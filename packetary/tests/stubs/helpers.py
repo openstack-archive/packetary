@@ -36,11 +36,9 @@ class CallbacksAdapter(mock.MagicMock):
         else:
             callback = None
 
-        if not callable(callback):
-            return super(CallbacksAdapter, self).__call__(*args, **kwargs)
-
-        args = args[:-1]
         data = super(CallbacksAdapter, self).__call__(*args, **kwargs)
+        if not callable(callback):
+            return data
 
         if isinstance(data, list):
             for d in data:

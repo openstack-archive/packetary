@@ -47,15 +47,15 @@ class CloneCommand(PackagesMixin, RepositoriesMixin, BaseRepoCommand):
 
         return parser
 
-    def take_repo_action(self, api, parsed_args):
-        stat = api.clone_repositories(
+    def take_repo_action(self, repo_api, parsed_args):
+        stat = repo_api.clone_repositories(
             parsed_args.repositories,
-            parsed_args.requirements,
             parsed_args.destination,
-            parsed_args.sources,
-            parsed_args.locales,
-            parsed_args.include_mandatory,
-            filter_data=parsed_args.exclude_filter_data,
+            parsed_args.requirements,
+            repo_api.CopyOptions(
+                sources=parsed_args.sources,
+                localizations=parsed_args.locales,
+            )
         )
         self.stdout.write(
             "Packages copied: {0.copied}/{0.total}.\n".format(stat)
