@@ -22,7 +22,7 @@ from packetary.cli.commands.base import RepositoriesMixin
 
 
 class ListOfPackages(
-    PackagesMixin, RepositoriesMixin, BaseProduceOutputCommand):
+        PackagesMixin, RepositoriesMixin, BaseProduceOutputCommand):
     """Gets the list of packages from repository(es)."""
 
     columns = (

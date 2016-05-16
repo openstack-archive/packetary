@@ -38,8 +38,8 @@ class CreateCommand(BaseRepoCommand):
             type=read_from_file,
             metavar='FILENAME',
             required=True,
-            help="The path to file that contains list of URLs \
-                  of package files."
+            help="The path to file that contains list of URLs "
+                 "of package files."
         )
         return parser
 
