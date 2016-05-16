@@ -274,7 +274,7 @@ class DebRepositoryDriver(RepositoryDriverBase):
 
         release = deb822.Release()
         release["Origin"] = repository.origin
-        release["Label"] = repository.origin
+        release["Label"] = repository.section[0]
         release["Archive"] = repository.section[0]
         release["Component"] = repository.section[1]
         release["Architecture"] = _ARCHITECTURES[repository.architecture]
@@ -402,9 +402,9 @@ class DebRepositoryDriver(RepositoryDriverBase):
             "%a, %d %b %Y %H:%M:%S %Z"
         )
         release.setdefault("Origin", repository.origin)
-        release.setdefault("Label", repository.origin)
+        release.setdefault("Label", repository.section[0])
         release.setdefault("Suite", repository.section[0])
-        release.setdefault("Codename", repository.section[0].split("-", 1)[0])
+        release.setdefault("Codename", repository.section[0])
         release.setdefault("Description", "The packages repository.")
 
         keys = ("Architectures", "Components")
