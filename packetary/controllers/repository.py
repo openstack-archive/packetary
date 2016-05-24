@@ -49,7 +49,7 @@ class RepositoryController(object):
         """
         if cls._drivers is None:
             cls._drivers = stevedore.ExtensionManager(
-                "packetary.drivers", invoke_on_load=True
+                "packetary.repository_drivers", invoke_on_load=True
             )
         try:
             driver = cls._drivers[driver_name].obj
