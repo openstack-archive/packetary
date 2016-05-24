@@ -1,0 +1,37 @@
+  ─── Chroot ───
+  Name                                 trusty-amd64-sbuild
+  Description                          Debian trusty/amd64 autobuilder
+  Type                                 directory
+  Message Verbosity                    normal
+  Users
+  Groups                               root sbuild
+  Root Users
+  Root Groups                          root sbuild
+  Aliases
+  Preserve Environment                 false
+  Default Shell
+  Environment Filter                   ^(BASH_ENV|CDPATH|ENV|HOSTALIASES|IFS|KRB5_CONFIG|KRBCONFDIR|KRBTKFILE|KRB_CONF|LD_.*|LOCALDOMAIN|NLSPATH|PATH_LOCALE|RES_OPTIONS|TERMINFO|TERMINFO_DIRS|TERMPATH)$
+  Run Setup Scripts                    true
+  Configuration Profile                sbuild
+  Script Configuration
+  Session Managed                      true
+  Session Cloned                       true
+  Session Purged                       false
+  Directory                            /srv/chroot/trusty
+  Personality                          undefined
+  User Modifiable Keys
+  Root Modifiable Keys
+  User Data
+    setup.config                       sbuild/config
+    setup.copyfiles                    sbuild/copyfiles
+    setup.fstab                        sbuild/fstab
+    setup.nssdatabases                 sbuild/nssdatabases
+  Filesystem Union Type                aufs
+  Filesystem Union Overlay Directory   /var/lib/schroot/union/overlay
+  Filesystem Union Underlay Directory  /var/lib/schroot/union/underlay
+  Source Users
+  Source Groups
+  Source Root Users
+  Source Root Groups
+
+
