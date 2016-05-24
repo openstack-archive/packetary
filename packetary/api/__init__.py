@@ -19,11 +19,13 @@
 from packetary.api.context import Configuration
 from packetary.api.context import Context
 from packetary.api.options import RepositoryCopyOptions
+from packetary.api.packaging import PackagingApi
 from packetary.api.repositories import RepositoryApi
 
 __all__ = [
     "Configuration",
     "Context",
+    "PackagingApi",
     "RepositoryApi",
     "RepositoryCopyOptions",
 ]
