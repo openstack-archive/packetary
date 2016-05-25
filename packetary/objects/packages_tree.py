@@ -72,11 +72,13 @@ class PackagesTree(object):
             if len(candidates) > 0:
                 return candidates
 
+        if name in self.provides:
+            result = self._resolve_relation(self.provides[name], version_range)
+            if result:
+                return result
+
         if name in self.obsoletes:
             return self._resolve_relation(self.obsoletes[name], version_range)
-
-        if name in self.provides:
-            return self._resolve_relation(self.provides[name], version_range)
         return []
 
     def get_unresolved_dependencies(self):
