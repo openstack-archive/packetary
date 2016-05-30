@@ -242,12 +242,15 @@ class TestPackageVersion(base.TestCase):
         ver5 = PackageVersion.from_string("1:8.0.0~b3")
         ver6 = PackageVersion.from_string("1:8.0.0")
         ver7 = PackageVersion.from_string("1:8.0.0~a1")
+        ver8 = PackageVersion.from_string("8.0.0-1~b1~debian2")
+        ver9 = PackageVersion.from_string("8.0.0-0~rc1")
+        ver10 = PackageVersion.from_string("8.0.0")
         self.assertLess(ver1, ver2)
         self.assertGreater(ver2, ver1)
         self.assertEqual(ver1, ver1)
         self.assertLess(ver1, "6.3-40")
         self.assertGreater(ver1, "6.3-31.4a")
-        self.assertEqual(ver2, ver3)
+        self.assertGreater(ver3, ver2)
         self.assertGreater(ver4, ver3)
         self.assertGreater(ver4, ver2)
         # test tilda in versioning
@@ -256,3 +259,5 @@ class TestPackageVersion(base.TestCase):
         #     1:8.0.0~b3 > 1:8.0.0~a1
         self.assertGreater(ver6, ver5)
         self.assertGreater(ver5, ver7)
+        self.assertLess(ver8, "8.0.0-1~b1")
+        self.assertGreater(ver10, ver9)
