@@ -110,6 +110,15 @@ class PackageVersion(ComparableObject):
                 a = la.pop(0)
             if lb:
                 b = lb.pop(0)
+            # handle the tilde separator, which is ~ = (int) 382
+            # _order("~") == 382
+            # if both versions have tilde then let's continue
+            if a == b == 382:
+                continue
+            if a == 382:
+                return -1
+            if b == 382:
+                return 1
             if a < b:
                 return -1
             elif a > b:
