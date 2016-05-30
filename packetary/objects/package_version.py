@@ -69,6 +69,12 @@ class PackageVersion(ComparableObject):
             return res
         if self.release and other.release:
             return self._cmp_version_part(self.release, other.release)
+        # if one is empty/null and the other is not,
+        # the non-empty one is greater
+        if self.release is None:
+            return 1
+        if other.release is None:
+            return -1
         return 0
 
     def __eq__(self, other):
