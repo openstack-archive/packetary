@@ -20,7 +20,6 @@ import copy
 import six
 
 from packetary.objects import PackageRelation
-from packetary.objects import PackageVersion
 from packetary.objects import VersionRange
 
 
@@ -215,44 +214,3 @@ class TestVersionRange(TestObjectBase):
     def test_intersection_is_typesafe(self):
         with self.assertRaises(TypeError):
             VersionRange("=", 1).has_intersection(("=", 1))
-
-
-class TestPackageVersion(base.TestCase):
-    def test_get_from_string(self):
-        ver = PackageVersion.from_string("1.0-22")
-        self.assertEqual(0, ver.epoch)
-        self.assertEqual(('1', '0'), ver.version)
-        self.assertEqual(('22',), ver.release)
-
-        ver2 = PackageVersion.from_string("1:11.0-2")
-        self.assertEqual(1, ver2.epoch)
-        self.assertEqual(('11', '0'), ver2.version)
-        self.assertEqual(('2',), ver2.release)
-
-        ver3 = PackageVersion.from_string("11.0")
-        self.assertEqual(0, ver3.epoch)
-        self.assertEqual(('11', '0'), ver3.version)
-        self.assertIsNone(ver3.release)
-
-    def test_compare(self):
-        ver1 = PackageVersion.from_string("6.3-31.5")
-        ver2 = PackageVersion.from_string("13.9-16.12")
-        ver3 = PackageVersion.from_string("13.9")
-        ver4 = PackageVersion.from_string("1:13.9")
-        ver5 = PackageVersion.from_string("1:8.0.0~b3")
-        ver6 = PackageVersion.from_string("1:8.0.0")
-        ver7 = PackageVersion.from_string("1:8.0.0~a1")
-        self.assertLess(ver1, ver2)
-        self.assertGreater(ver2, ver1)
-        self.assertEqual(ver1, ver1)
-        self.assertLess(ver1, "6.3-40")
-        self.assertGreater(ver1, "6.3-31.4a")
-        self.assertEqual(ver2, ver3)
-        self.assertGreater(ver4, ver3)
-        self.assertGreater(ver4, ver2)
-        # test tilda in versioning
-        # rpmdev-vercmp 1:8.0.0~b3 1:8.0.0
-        #     1:8.0.0~b3 < 1:8.0.0
-        #     1:8.0.0~b3 > 1:8.0.0~a1
-        self.assertGreater(ver6, ver5)
-        self.assertGreater(ver5, ver7)

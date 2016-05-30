@@ -19,6 +19,7 @@
 import copy
 import multiprocessing
 import os
+import rpmUtils
 import shutil
 import tempfile
 
@@ -30,10 +31,10 @@ from packetary.drivers.base import RepositoryDriverBase
 from packetary.library.checksum import composite as checksum_composite
 from packetary.library.streams import GzipDecompress
 from packetary.library import utils
+from packetary.objects.base import ComparableObject
 from packetary.objects import FileChecksum
 from packetary.objects import Package
 from packetary.objects import PackageRelation
-from packetary.objects import PackageVersion
 from packetary.objects import Repository
 from packetary.objects import VersionRange
 from packetary.schemas import RPM_REPO_SCHEMA
@@ -84,6 +85,53 @@ class CreaterepoCallBack(object):
     def progress(self, item, current, total):
         """"Progress bar."""
         pass
+
+
+class RpmPackageVersion(ComparableObject):
+    """The Package version."""
+
+    __slots__ = ["epoch", "version", "release"]
+
+    def __init__(self, epoch, version, release=None):
+        self.epoch = epoch
+        self.version = version
+        self.release = release or ''
+
+    @classmethod
+    def from_string(cls, text):
+        """Constructs from string.
+
+        :param text: the version in format '[{epoch-}]-{version}-{release}'
+        """
+        (epoch, version, release) = rpmUtils.miscutils.stringToVersion(text)
+        return cls(epoch, version, release)
+
+    def cmp(self, other):
+        if not isinstance(other, RpmPackageVersion):
+            other = RpmPackageVersion.from_string(str(other))
+
+        return rpmUtils.miscutils.compareEVR(
+            (self.epoch, self.version, self.release),
+            (other.epoch, other.version, other.release)
+        )
+
+    def __eq__(self, other):
+        if other is self:
+            return True
+        return self.cmp(other) == 0
+
+    def __str__(self):
+        if self.release:
+            return "{0}:{1}-{2}".format(
+                self.epoch,
+                self.version,
+                self.release,
+            )
+        else:
+            return "{0}:{1}".format(
+                self.epoch,
+                self.version,
+            )
 
 
 class RpmRepositoryDriver(RepositoryDriverBase):
@@ -194,7 +242,7 @@ class RpmRepositoryDriver(RepositoryDriverBase):
         return Package(
             repository=repository,
             name=hdr["name"],
-            version=PackageVersion(
+            version=RpmPackageVersion(
                 hdr['epoch'], hdr['version'], hdr['release']
             ),
             filesize=int(hdr['size']),
@@ -381,7 +429,7 @@ class RpmRepositoryDriver(RepositoryDriverBase):
         return [
             PackageRelation(
                 x[0], VersionRange(
-                    _OPERATORS_MAPPING[x[1]], x[1] and PackageVersion(*x[2])
+                    _OPERATORS_MAPPING[x[1]], x[1] and RpmPackageVersion(*x[2])
                 )
             )
             for x in relations
@@ -416,11 +464,11 @@ class RpmRepositoryDriver(RepositoryDriverBase):
         """Gets the package version from attributes.
 
         :param attrs: the relation tag attributes
-        :return: the PackageVersion object
+        :return: the RpmPackageVersion object
         """
 
-        return PackageVersion(
-            attrs.get("epoch", 0),
+        return RpmPackageVersion(
+            attrs.get("epoch", "0"),
             attrs.get("ver", "0.0"),
             attrs.get("rel")
         )

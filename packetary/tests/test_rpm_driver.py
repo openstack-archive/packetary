@@ -43,8 +43,10 @@ class TestRpmDriver(base.TestCase):
     @classmethod
     def setUpClass(cls):
         sys.modules["createrepo"] = mock.MagicMock()
+        sys.modules["rpmUtils"] = mock.MagicMock()
         from packetary.drivers import rpm_driver
         cls.createrepo = rpm_driver.createrepo = mock.MagicMock()
+        cls.rpmUtils = rpm_driver.rpmUtils = mock.MagicMock()
 
         super(TestRpmDriver, cls).setUpClass()
         cls.driver = rpm_driver.RpmRepositoryDriver()
@@ -52,6 +54,7 @@ class TestRpmDriver(base.TestCase):
 
     def setUp(self):
         self.createrepo.reset_mock()
+        self.rpmUtils.reset_mock()
         self.connection = mock.MagicMock()
 
     def configure_streams(self, groups_gzipped=True):
@@ -127,6 +130,10 @@ class TestRpmDriver(base.TestCase):
         self.assertEqual(2, len(packages))
         package = packages[0]
         self.assertEqual("test1", package.name)
+        self.rpmUtils.miscutils.stringToVersion.return_value = (
+            "0", "1.1.1.1", "1.el7"
+        )
+        self.rpmUtils.miscutils.compareEVR.return_value = 0
         self.assertEqual("1.1.1.1-1.el7", package.version)
         self.assertEqual(100, package.filesize)
         self.assertEqual(
@@ -366,7 +373,7 @@ class TestRpmDriver(base.TestCase):
         rpm_mock.returnFileEntries.return_value = ["/usr/bin/test"]
         self.createrepo.yumbased.YumLocalPackage.return_value = rpm_mock
         rpm_mock.returnLocalHeader.return_value = {
-            "name": "Test", "epoch": 1, "version": "1.2.3", "release": "1",
+            "name": "Test", "epoch": "1", "version": "1.2.3", "release": "1",
             "size": "10", "group": "Group"
         }
         repo = gen_repository("Test", url="file:///repo/os/x86_64/")
