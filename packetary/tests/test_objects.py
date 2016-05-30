@@ -239,6 +239,10 @@ class TestPackageVersion(base.TestCase):
         ver2 = PackageVersion.from_string("13.9-16.12")
         ver3 = PackageVersion.from_string("13.9")
         ver4 = PackageVersion.from_string("1:13.9")
+        ver5 = PackageVersion.from_string("1:8.0.0~b3")
+        ver6 = PackageVersion.from_string("1:8.0.0")
+        ver7 = PackageVersion.from_string("1:8.0.0~b3")
+        ver8 = PackageVersion.from_string("1:8.0.0~a1")
         self.assertLess(ver1, ver2)
         self.assertGreater(ver2, ver1)
         self.assertEqual(ver1, ver1)
@@ -247,3 +251,9 @@ class TestPackageVersion(base.TestCase):
         self.assertEqual(ver2, ver3)
         self.assertGreater(ver4, ver3)
         self.assertGreater(ver4, ver2)
+        # test tilda in versioning
+        # rpmdev-vercmp 1:8.0.0~b3 1:8.0.0
+        #     1:8.0.0~b3 < 1:8.0.0
+        #     1:8.0.0~b3 > 1:8.0.0~a1
+        self.assertGreater(ver6, ver5)
+        self.assertGreater(ver7, ver8)
