@@ -109,7 +109,15 @@ class RpmPackageVersion(ComparableObject):
     def cmp(self, other):
         if not isinstance(other, RpmPackageVersion):
             other = RpmPackageVersion.from_string(str(other))
-
+        # if some package doesn't have release then we are processing
+        # some Require section, so let's assume foo-1.2 == foo-1.2-45
+        # in order to build correct list of providers
+        if self.release == '' or other.release == '':
+            return rpmUtils.miscutils.compareEVR(
+                (self.epoch, self.version, ''),
+                (other.epoch, other.version, '')
+            )
+        # we have full nvr, so let's compare them all
         return rpmUtils.miscutils.compareEVR(
             (self.epoch, self.version, self.release),
             (other.epoch, other.version, other.release)
