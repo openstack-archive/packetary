@@ -57,6 +57,7 @@ class PackagesTree(object):
         """
         candidates = self.find_all(name, version_range)
         if len(candidates) > 0:
+            # we return candidates in sorted order, so let's take the highest
             return candidates[-1]
         return None
 
@@ -67,11 +68,6 @@ class PackagesTree(object):
         :param version_range: the range of versions.
         :return: the list of suitable packages
         """
-        if name in self.packages:
-            candidates = self.packages.find_all(name, version_range)
-            if len(candidates) > 0:
-                return candidates
-
         if name in self.provides:
             result = self._resolve_relation(self.provides[name], version_range)
             if result:
@@ -111,5 +107,6 @@ class PackagesTree(object):
                 result.extend(
                     self.packages.find_all(key[0], VersionRange('=', key[1]))
                 )
+        # sort related packages ASC
         result.sort(key=lambda x: x.version)
         return result
