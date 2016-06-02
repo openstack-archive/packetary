@@ -93,7 +93,11 @@ class VersionRange(object):
 
         if self.op[0] == other.op[0]:
             if self.op == '=':
-                return self.edge == other.edge
+                if self.edge == other.edge:
+                    return True
+                else:
+                    # let's search the same packages but with &gt release
+                    return self.edge > other.edge
             # the intersection is -inf or +inf
             return True
         if self.edge == other.edge:
