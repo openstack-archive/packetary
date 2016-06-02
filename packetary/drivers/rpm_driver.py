@@ -115,6 +115,26 @@ class RpmPackageVersion(ComparableObject):
             (other.epoch, other.version, other.release)
         )
 
+    def greaterRelease(self, other):
+        """Compare release part only of the packages
+
+        :param other: RpmPackageVersion object to compare
+        :return: True if we have package with the same nv
+        but greater r part. Otherwise - False
+        """
+
+        # do we have the same nv?
+        if rpmUtils.miscutils.compareEVR(
+                (self.epoch, self.version, ''),
+                (other.epoch, other.version, '')
+            ) != 0:
+            return False
+        # does package other have greater release number?
+        return rpmUtils.miscutils.compareEVR(
+            (self.epoch, self.version, self.release),
+            (other.epoch, other.version, other.release)
+        ) == -1
+
     def __eq__(self, other):
         if other is self:
             return True
