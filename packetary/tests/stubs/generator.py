@@ -40,14 +40,15 @@ def gen_package(idx=1, **kwargs):
     repository = gen_repository()
     name = kwargs.setdefault("name", "package{0}".format(idx))
     kwargs.setdefault("repository", repository)
-    kwargs.setdefault("version", 1)
+    version = kwargs.setdefault("version", 1)
     kwargs.setdefault("checksum", objects.FileChecksum("1", "2", "3"))
     kwargs.setdefault("filename", "{0}.pkg".format(name))
     kwargs.setdefault("filesize", 1)
-    for relation in ("requires", "provides", "obsoletes"):
+    kwargs["provides"] = [gen_relation(name, ["=", version])]
+    for relation in ("requires", "obsoletes"):
         if relation not in kwargs:
             kwargs[relation] = [gen_relation(
-                "{0}{1}".format(relation, idx), ["<=", idx + 1]
+                "{0}{1}".format(relation, idx), ["<", idx + 1]
             )]
 
     return objects.Package(**kwargs)
