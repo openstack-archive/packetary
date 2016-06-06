@@ -1,0 +1,10 @@
+Code-Review+2: Bulat Gaifullin <bgaifullin@mirantis.com>
+Code-Review+1: Ivan <ibogomazov@mirantis.com>
+Code-Review+1: Vladimir Kozhukalov <vkozhukalov@mirantis.com>
+Workflow+1: Vladimir Kozhukalov <vkozhukalov@mirantis.com>
+Verified+2: Jenkins
+Submitted-by: Jenkins
+Submitted-at: Mon, 06 Jun 2016 12:50:00 +0000
+Reviewed-on: https://review.openstack.org/324793
+Project: openstack/packetary
+Branch: refs/heads/master
