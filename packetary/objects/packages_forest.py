@@ -30,12 +30,12 @@ class PackagesForest(object):
     def __init__(self):
         self.trees = []
 
-    def add_tree(self):
+    def add_tree(self, priority=None):
         """Add new tree to end of forest.
 
         :return: The added tree
         """
-        tree = PackagesTree()
+        tree = PackagesTree(priority)
         self.trees.append(tree)
         return tree
 

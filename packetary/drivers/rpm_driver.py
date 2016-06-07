@@ -162,7 +162,8 @@ class RpmRepositoryDriver(RepositoryDriverBase):
             url=utils.normalize_repository_url(repository_data["uri"]),
             architecture=arch,
             path=repository_data.get('path'),
-            origin=""
+            origin="",
+            priority=repository_data['priority'] or _DEFAULT_PRIORITY
         ))
 
     def get_packages(self, connection, repository, consumer):
