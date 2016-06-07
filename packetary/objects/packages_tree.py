@@ -27,7 +27,7 @@ from packetary.objects.package_relation import VersionRange
 class PackagesTree(object):
     """Helper class to deal with dependency graph."""
 
-    def __init__(self):
+    def __init__(self, priority=None):
         super(PackagesTree, self).__init__()
         self.mandatory_packages = []
         self.packages = Index()

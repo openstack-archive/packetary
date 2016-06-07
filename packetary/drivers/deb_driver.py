@@ -87,7 +87,7 @@ class DebRepositoryDriver(RepositoryDriverBase):
     def get_repository_data_schema(self):
         return DEB_REPO_SCHEMA
 
-    def priority_sort(self, repo_data):
+    def get_priority(self, repo_data):
         # DEB repository expects general values from 0 to 1000. 0
         # to have lowest priority and 1000 -- the highest. Note that a
         # priority above 1000 will allow even downgrades no matter the version
@@ -127,7 +127,8 @@ class DebRepositoryDriver(RepositoryDriverBase):
                 origin=deb_release["origin"],
                 url=url,
                 section=(suite, component),
-                path=path
+                path=path,
+                priority=self.get_priority(repository_data)
             ))
 
     def get_packages(self, connection, repository, consumer):
@@ -226,7 +227,8 @@ class DebRepositoryDriver(RepositoryDriverBase):
             architecture=arch,
             origin=origin,
             section=(suite, component),
-            path=path
+            path=path,
+            priority=self.get_priority(repository_data)
         )
         self._create_repository_structure(repository)
         self.logger.info("Created: %d repository.", repository.name)

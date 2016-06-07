@@ -53,7 +53,7 @@ class TestDebDriver(base.TestCase):
             {"name": "repo2", "priority": 1000},
             {"name": "repo3", "priority": None}
         ]
-        repos.sort(key=self.driver.priority_sort)
+        repos.sort(key=self.driver.get_priority)
 
         self.assertEqual(
             ["repo2", "repo0", "repo3", "repo1"],
@@ -311,7 +311,7 @@ class TestDebDriver(base.TestCase):
     def test_create_repository(self, mkdir_mock, deb822, gzip, open, os):
         repository_data = {
             "name": "Test", "uri": "file:///repo", "suite": "trusty",
-            "section": "main", "type": "rpm", "priority": "100",
+            "section": "main", "type": "rpm", "priority": 100,
             "origin": "Origin", "path": "/repo"
         }
         repo = self.driver.create_repository(

@@ -65,7 +65,7 @@ _OPERATORS_MAPPING = {
     'LE': '<=',
 }
 
-_DEFAULT_PRIORITY = 10
+_DEFAULT_PRIORITY = 99
 
 
 class CreaterepoCallBack(object):
@@ -146,11 +146,9 @@ class RpmRepositoryDriver(RepositoryDriverBase):
     def get_repository_data_schema(self):
         return RPM_REPO_SCHEMA
 
-    def priority_sort(self, repo_data):
-        # DEB repository expects general values from 0 to 1000. 0
-        # to have lowest priority and 1000 -- the highest. Note that a
-        # priority above 1000 will allow even downgrades no matter the version
-        # of the prioritary package
+    def get_priority(self, repo_data):
+        # RPM repository expects general values from 0 to 99. 0
+        # to have the highest priority and 99 -- the lowest.
         priority = repo_data.get('priority')
         if priority is None:
             priority = _DEFAULT_PRIORITY
@@ -162,7 +160,8 @@ class RpmRepositoryDriver(RepositoryDriverBase):
             url=utils.normalize_repository_url(repository_data["uri"]),
             architecture=arch,
             path=repository_data.get('path'),
-            origin=""
+            origin="",
+            priority=self.get_priority(repository_data)
         ))
 
     def get_packages(self, connection, repository, consumer):
@@ -234,7 +233,8 @@ class RpmRepositoryDriver(RepositoryDriverBase):
             url=utils.normalize_repository_url(repository_data["uri"]),
             architecture=arch,
             path=repository_data.get('path'),
-            origin=repository_data.get('origin')
+            origin=repository_data.get('origin'),
+            priority=self.get_priority(repository_data)
         )
         utils.ensure_dir_exist(utils.get_path_from_url(repository.url))
         self._rebuild_repository(connection, repository, None, None)
