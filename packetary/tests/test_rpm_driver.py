@@ -82,7 +82,7 @@ class TestRpmDriver(base.TestCase):
             {"name": "repo2", "priority": 99},
             {"name": "repo3", "priority": None}
         ]
-        repos.sort(key=self.driver.priority_sort)
+        repos.sort(key=self.driver.get_priority)
 
         self.assertEqual(
             ["repo1", "repo0", "repo3", "repo2"],

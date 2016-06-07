@@ -146,7 +146,7 @@ class RpmRepositoryDriver(RepositoryDriverBase):
     def get_repository_data_schema(self):
         return RPM_REPO_SCHEMA
 
-    def priority_sort(self, repo_data):
+    def get_priority(self, repo_data):
         # DEB repository expects general values from 0 to 1000. 0
         # to have lowest priority and 1000 -- the highest. Note that a
         # priority above 1000 will allow even downgrades no matter the version
@@ -162,7 +162,8 @@ class RpmRepositoryDriver(RepositoryDriverBase):
             url=utils.normalize_repository_url(repository_data["uri"]),
             architecture=arch,
             path=repository_data.get('path'),
-            origin=""
+            origin="",
+            priority=self.get_priority(repository_data)
         ))
 
     def get_packages(self, connection, repository, consumer):

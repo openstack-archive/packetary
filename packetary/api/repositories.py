@@ -151,7 +151,10 @@ class RepositoryApi(object):
             for repo in repositories:
                 self.controller.load_packages(
                     repo,
-                    compose(forest.add_tree().add, packages_traverse)
+                    compose(
+                        forest.add_tree(repo.priority).add,
+                        packages_traverse
+                    )
                 )
             return forest.get_packages(
                 package_relations, requirements.get('mandatory', True)
