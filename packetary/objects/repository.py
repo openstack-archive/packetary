@@ -20,7 +20,7 @@
 class Repository(object):
     """Structure to describe repository object."""
 
-    def __init__(self, name, url, architecture, origin=None,
+    def __init__(self, name, url, architecture, priority, origin=None,
                  path=None, section=None):
         """Initialises.
 
@@ -37,6 +37,7 @@ class Repository(object):
         self.url = url
         self.section = section
         self.path = path
+        self.priority = priority
 
     def __str__(self):
         if not self.section:
