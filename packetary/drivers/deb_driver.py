@@ -87,7 +87,7 @@ class DebRepositoryDriver(RepositoryDriverBase):
     def get_repository_data_schema(self):
         return DEB_REPO_SCHEMA
 
-    def priority_sort(self, repo_data):
+    def get_priority(self, repo_data):
         # DEB repository expects general values from 0 to 1000. 0
         # to have lowest priority and 1000 -- the highest. Note that a
         # priority above 1000 will allow even downgrades no matter the version

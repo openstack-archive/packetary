@@ -53,7 +53,7 @@ class TestDebDriver(base.TestCase):
             {"name": "repo2", "priority": 1000},
             {"name": "repo3", "priority": None}
         ]
-        repos.sort(key=self.driver.priority_sort)
+        repos.sort(key=self.driver.get_priority)
 
         self.assertEqual(
             ["repo2", "repo0", "repo3", "repo1"],

@@ -103,7 +103,7 @@ class RepositoryDriverBase(object):
         """
 
     @abc.abstractmethod
-    def priority_sort(self, repo_data):
+    def get_priority(self, repo_data):
         """Key method to sort repositories data by priority.
 
         :param repo_data: the repository`s description

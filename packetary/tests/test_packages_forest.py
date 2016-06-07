@@ -71,7 +71,10 @@ class TestPackagesForest(base.TestCase):
         self._add_packages(forest.add_tree(), [p11, p22])
         self._add_packages(forest.add_tree(), [p12, p21])
         self.assertEqual(
-            p11, forest.find(generator.gen_relation("package1", [">=", 1]))
+            p11, forest.find(generator.gen_relation("package1", ["=", 1]))
+        )
+        self.assertEqual(
+            p12, forest.find(generator.gen_relation("package1", [">=", 1]))
         )
         self.assertEqual(
             p12, forest.find(generator.gen_relation("package1", [">", 1]))
