@@ -67,7 +67,7 @@ class RepositoryController(object):
         """
 
         connection = self.context.connection
-        repositories_data.sort(key=self.driver.priority_sort)
+        repositories_data.sort(key=self.driver.get_priority)
         repos = []
         for repo_data in repositories_data:
             self.driver.get_repository(
