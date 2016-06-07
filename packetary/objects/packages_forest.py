@@ -17,7 +17,9 @@
 #    51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 
 import logging
+import six
 
+from collections import OrderedDict
 from packetary.objects.packages_tree import PackagesTree
 
 
@@ -28,16 +30,17 @@ class PackagesForest(object):
     """Helper class to deal with dependency graph."""
 
     def __init__(self):
-        self.trees = []
+        self.trees = OrderedDict()
 
-    def add_tree(self):
+    def add_tree(self, priority):
         """Add new tree to end of forest.
 
         :return: The added tree
         """
-        tree = PackagesTree()
-        self.trees.append(tree)
-        return tree
+
+        if priority not in self.trees:
+            self.trees[priority] = PackagesTree(priority)
+        return self.trees[priority]
 
     def get_packages(self, requirements, include_mandatory=False):
         """Get the packages according requirements.
@@ -57,7 +60,7 @@ class PackagesForest(object):
         stack = [(None, requirements)]
 
         if include_mandatory:
-            for tree in self.trees:
+            for _, tree in six.iteritems(self.trees):
                 for mandatory in tree.mandatory_packages:
                     resolved.add(mandatory)
                     stack.append((mandatory, mandatory.requires))
@@ -85,7 +88,7 @@ class PackagesForest(object):
         :param relation: the package relation
         :return: the packages from first tree if found otherwise empty list
         """
-        for tree in self.trees:
+        for _, tree in six.iteritems(self.trees):
             candidate = tree.find(relation.name, relation.version)
             if candidate is not None:
                 return candidate

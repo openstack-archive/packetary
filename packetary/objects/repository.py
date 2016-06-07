@@ -20,13 +20,14 @@
 class Repository(object):
     """Structure to describe repository object."""
 
-    def __init__(self, name, url, architecture, origin=None,
+    def __init__(self, name, url, architecture, priority, origin=None,
                  path=None, section=None):
         """Initialises.
 
         :param name: the repository`s name, may be tuple of strings
         :param url: the repository`s URL
         :param architecture: the repository`s architecture
+        :param priority: repository priority
         :param origin: optional, the repository`s origin
         :param path: the repository relative path, used for mirroring
         :param section: the repository section
@@ -37,6 +38,7 @@ class Repository(object):
         self.url = url
         self.section = section
         self.path = path
+        self.priority = priority
 
     def __str__(self):
         if not self.section:
