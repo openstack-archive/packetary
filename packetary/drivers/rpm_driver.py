@@ -196,7 +196,7 @@ class RpmRepositoryDriver(RepositoryDriverBase):
                         "./main:location", _NAMESPACES
                     ).attrib["href"],
                     checksum=self._get_checksum(tag),
-                    mandatory=name in mandatory,
+                    mandatory='>=' if name in mandatory else None,
                     requires=self._get_relations(tag, "requires"),
                     obsoletes=self._get_relations(tag, "obsoletes"),
                     provides=self._get_provides_from_xml(tag),
@@ -255,7 +255,7 @@ class RpmRepositoryDriver(RepositoryDriverBase):
             filesize=int(hdr['size']),
             filename=filepath,
             checksum=FileChecksum(*checksum),
-            mandatory=False,
+            mandatory=None,
             requires=self._parse_package_relations(pkg.requires),
             obsoletes=self._parse_package_relations(pkg.obsoletes),
             provides=self._get_provides_from_rpm(pkg),

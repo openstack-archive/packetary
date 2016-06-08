@@ -28,7 +28,7 @@ class Package(ComparableObject):
     """Structure to describe package object."""
 
     def __init__(self, repository, name, version, filename,
-                 filesize, checksum, mandatory=False,
+                 filesize, checksum, mandatory=None,
                  requires=None, provides=None, obsoletes=None,
                  group=None):
         """Initialises.

@@ -150,7 +150,7 @@ class DebRepositoryDriver(RepositoryDriverBase):
                         sha1=dpkg.get("sha1"),
                         sha256=dpkg.get("sha256"),
                     ),
-                    mandatory=self._is_mandatory(dpkg),
+                    mandatory='=' if self._is_mandatory(dpkg) else None,
                     # Recommends are installed by default (since Lucid)
                     requires=self._get_relations(
                         dpkg, "depends", "pre-depends", "recommends"
@@ -251,7 +251,7 @@ class DebRepositoryDriver(RepositoryDriverBase):
             filesize=int(debcontrol.get('size', size)),
             filename=filename,
             checksum=FileChecksum(*checksum),
-            mandatory=self._is_mandatory(debcontrol),
+            mandatory='=' if self._is_mandatory(debcontrol) else None,
             requires=self._get_relations(
                 debcontrol, "depends", "pre-depends",
                 "recommends"
