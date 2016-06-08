@@ -25,6 +25,7 @@ from packetary.api.context import Context
 from packetary.api.options import RepositoryCopyOptions
 from packetary.controllers import RepositoryController
 from packetary.library.functions import compose
+from packetary.objects.package_relation import PackageRelation
 from packetary import objects
 from packetary import schemas
 
@@ -149,13 +150,24 @@ class RepositoryApi(object):
                 requirements.get('repositories'), package_relations.append
             )
             for repo in repositories:
+                tree = forest.add_tree(repo.priority)
                 self.controller.load_packages(
                     repo,
                     compose(
-                        forest.add_tree(repo.priority).add,
+                        tree.add,
                         packages_traverse
                     )
                 )
+                for package in tree.mandatory_packages:
+                    if package.mandatory == 'exact':
+                        package_relations.append(
+                            PackageRelation.from_args(
+                                (package.name, "=", package.version)))
+                    else:
+                        package_relations.append(
+                            PackageRelation.from_args(
+                                (package.name, ">=", package.version)))
+
             return forest.get_packages(
                 package_relations, requirements.get('mandatory', True)
             )
