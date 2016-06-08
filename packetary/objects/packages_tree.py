@@ -21,6 +21,7 @@ from collections import defaultdict
 import six
 
 from packetary.objects.index import Index
+from packetary.objects.package_relation import PackageRelation
 from packetary.objects.package_relation import VersionRange
 
 
@@ -30,6 +31,7 @@ class PackagesTree(object):
     def __init__(self):
         super(PackagesTree, self).__init__()
         self.mandatory_packages = []
+        self.mandatory_packages_relation = []
         self.packages = Index()
         self.provides = defaultdict(dict)
         self.obsoletes = defaultdict(dict)
@@ -38,6 +40,9 @@ class PackagesTree(object):
         # store all mandatory packages in separated list for quick access
         if package.mandatory:
             self.mandatory_packages.append(package)
+            self.mandatory_packages_relation.append(
+                PackageRelation.from_args(((package.name,)))
+            )
 
         self.packages.add(package)
         key = package.name, package.version
