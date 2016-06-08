@@ -28,7 +28,7 @@ class Package(ComparableObject):
     """Structure to describe package object."""
 
     def __init__(self, repository, name, version, filename,
-                 filesize, checksum, mandatory=False,
+                 filesize, checksum, mandatory=False, mandatory_edge='exact',
                  requires=None, provides=None, obsoletes=None,
                  group=None):
         """Initialises.
@@ -42,6 +42,9 @@ class Package(ComparableObject):
         :param provides: the package`s provides(optional)
         :param obsoletes: the package`s obsoletes(optional)
         :param mandatory: indicates that package is mandatory
+        :param mandatory_edge: indicates which package version is mandatory:
+                           - 'exact': (=)
+                           - 'any':   (any)
         :param group: corresponds to rpm group and deb section
         """
 
@@ -55,6 +58,7 @@ class Package(ComparableObject):
         self.provides = provides or []
         self.obsoletes = obsoletes or []
         self.mandatory = mandatory
+        self.mandatory_edge = mandatory_edge
         self.group = group
 
     def __copy__(self):

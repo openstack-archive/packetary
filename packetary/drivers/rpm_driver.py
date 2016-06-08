@@ -197,6 +197,7 @@ class RpmRepositoryDriver(RepositoryDriverBase):
                     ).attrib["href"],
                     checksum=self._get_checksum(tag),
                     mandatory=name in mandatory,
+                    mandatory_edge='any',
                     requires=self._get_relations(tag, "requires"),
                     obsoletes=self._get_relations(tag, "obsoletes"),
                     provides=self._get_provides_from_xml(tag),
