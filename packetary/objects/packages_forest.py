@@ -54,13 +54,12 @@ class PackagesForest(object):
 
         resolved = set()
         unresolved = set()
-        stack = [(None, requirements)]
 
         if include_mandatory:
             for tree in self.trees:
-                for mandatory in tree.mandatory_packages:
-                    resolved.add(mandatory)
-                    stack.append((mandatory, mandatory.requires))
+                requirements.extend(tree.mandatory_packages_relation)
+
+        stack = [(None, requirements)]
 
         while stack:
             pkg, requirements = stack.pop()
