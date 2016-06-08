@@ -107,6 +107,45 @@ class TestPackagesForest(base.TestCase):
             (x.name for x in packages)
         )
 
+    def test_get_rpm_packages_with_mandatory(self):
+        forest = PackagesForest()
+        p11 = generator.gen_package(name="package1", version=1,
+                                    filename="package1-1.rpm", requires=None)
+        p12 = generator.gen_package(name="package1", version=2,
+                                    filename="package1-2.rpm", requires=None)
+        p21 = generator.gen_package(name="package2", version=10,
+                                    filename="package2-10.rpm", requires=None)
+        p22 = generator.gen_package(name="package3", version=1,
+                                    filename="package3-1.rpm", requires=None)
+        p33 = generator.gen_package(name="package2", version=1,
+                                    filename="package2-1.rpm", requires=None,
+                                    mandatory=True)
+        p55 = generator.gen_package(name="package2", version=5,
+                                    filename="package2-5.rpm", requires=None)
+        self._add_packages(forest.add_tree(priority=10), [p11, p12])
+        self._add_packages(forest.add_tree(priority=20), [p21, p22])
+        self._add_packages(forest.add_tree(priority=30), [p33])
+        # get package1(any) + mandatory
+        packages = forest.get_packages(
+            [generator.gen_relation("package1")], True
+        )
+        # though mandatory is in repo with the lowest priority we must search
+        # the newest one but also taking priority in account
+        self.assertItemsEqual(
+            ["package1-2.rpm", "package2-10.rpm"],
+            (x.filename for x in packages)
+        )
+        # insert package with lower version but
+        # in repo with higher priorities
+        self._add_packages(forest.trees[10], [p55])
+        packages = forest.get_packages(
+            [generator.gen_relation("package1")], True
+        )
+        self.assertItemsEqual(
+            ["package1-2.rpm", "package2-5.rpm"],
+            (x.filename for x in packages)
+        )
+
     def test_get_packages_without_mandatory(self):
         forest = PackagesForest()
         self._generate_packages(forest)

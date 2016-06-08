@@ -20,6 +20,7 @@ import logging
 import six
 
 from collections import OrderedDict
+from packetary.objects.package_relation import PackageRelation
 from packetary.objects.packages_tree import PackagesTree
 
 
@@ -44,7 +45,7 @@ class PackagesForest(object):
             tree = self.trees[priority] = PackagesTree()
             return tree
 
-    def get_packages(self, requirements, include_mandatory=False):
+    def get_packages(self, required_pkgs, include_mandatory=False):
         """Get the packages according requirements.
 
         :param requirements: the list of requirements
@@ -59,11 +60,21 @@ class PackagesForest(object):
 
         resolved = set()
         unresolved = set()
+        requirements = set(required_pkgs)
         stack = [(None, requirements)]
 
         if include_mandatory:
             for tree in six.itervalues(self.trees):
                 for mandatory in tree.mandatory_packages:
+                    # in case of rpm we need to search mandatory
+                    # package with the highest version in all forest
+                    if mandatory.filename[-4:] == '.rpm':
+                        requirements.add(
+                            PackageRelation.from_args((mandatory.name,))
+                        )
+                        continue
+                    # we work with deb package, so add it as it is,
+                    # with "pinned" version
                     resolved.add(mandatory)
                     stack.append((mandatory, mandatory.requires))
 

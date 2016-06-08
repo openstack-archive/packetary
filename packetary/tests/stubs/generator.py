@@ -20,10 +20,12 @@ from packetary import objects
 
 
 def gen_repository(name="test", url="file:///test",
-                   architecture="x86_64", origin="Test", **kwargs):
+                   architecture="x86_64", priority=99,
+                   origin="Test", **kwargs):
     """Helper to create Repository object with default attributes."""
     url = kwargs.pop("uri", url)
-    return objects.Repository(name, url, architecture, origin, **kwargs)
+    return objects.Repository(name, url, architecture, priority, origin,
+                              **kwargs)
 
 
 def gen_relation(name="test", version=None, alternative=None):
