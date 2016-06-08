@@ -21,12 +21,14 @@ import logging
 
 import six
 
+from packetary import objects
+from packetary import schemas
+
 from packetary.api.context import Context
 from packetary.api.options import RepositoryCopyOptions
 from packetary.controllers import RepositoryController
 from packetary.library.functions import compose
-from packetary import objects
-from packetary import schemas
+from packetary.objects.package_relation import PackageRelation
 
 from packetary.api.loaders import get_packages_traverse
 from packetary.api.loaders import load_package_relations
@@ -35,6 +37,12 @@ from packetary.api.validators import declare_schema
 
 
 logger = logging.getLogger(__package__)
+
+
+_MANDATORY = {
+    "exact": "=",
+    "newest": ">=",
+}
 
 
 class RepositoryApi(object):
@@ -149,16 +157,23 @@ class RepositoryApi(object):
                 requirements.get('repositories'), package_relations.append
             )
             for repo in repositories:
+                tree = forest.add_tree(repo.priority)
                 self.controller.load_packages(
                     repo,
                     compose(
-                        forest.add_tree(repo.priority).add,
+                        tree.add,
                         packages_traverse
                     )
                 )
-            return forest.get_packages(
-                package_relations, requirements.get('mandatory', True)
-            )
+                if requirements.get('mandatory'):
+                    for package in tree.mandatory_packages:
+                        package_relations.append(
+                            PackageRelation.from_args(
+                                (package.name,
+                                 _MANDATORY[requirements['mandatory']],
+                                 package.version)))
+
+            return forest.get_packages(package_relations)
 
         packages = set()
         self._load_packages(repositories, packages.add)
