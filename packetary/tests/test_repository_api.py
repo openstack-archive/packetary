@@ -150,8 +150,28 @@ class TestRepositoryApi(base.TestCase):
         self._generate_packages()
         requirements = {
             'packages': [{"name": "repo0_1"}],
+            'repositories': [{"name": "repo1"}]
+        }
+        packages = self.api.get_packages(self.repos_data, requirements)
+        expected_packages = [self.packages[0][0]] + self.packages[1]
+        self.assertItemsEqual(
+            [x.name for x in expected_packages],
+            [x.name for x in packages]
+        )
+        repos_schema = self.api._get_repositories_data_schema()
+        jsonschema_mock.validate.assert_has_calls([
+            mock.call(self.repos_data, repos_schema),
+            mock.call(requirements, schemas.REQUIREMENTS_SCHEMA)
+        ], any_order=True)
+
+    def test_get_packages_by_requirements_newest_mandatory(self,
+                                                           jsonschema_mock):
+        self._generate_repositories(2)
+        self._generate_packages()
+        requirements = {
+            'packages': [{"name": "repo0_1"}],
             'repositories': [{"name": "repo1"}],
-            'mandatory': True
+            'mandatory': "newest"
         }
         packages = self.api.get_packages(self.repos_data, requirements)
         expected_packages = self.packages[0][:3] + self.packages[1]
@@ -193,7 +213,6 @@ class TestRepositoryApi(base.TestCase):
         requirements = {
             'packages': [{"name": "repo0_1"}],
             'repositories': [{"name": "repo1"}],
-            'mandatory': False
         }
         self.controller.assign_packages.return_value = [0, 1, 1] * 3
         stats = self.api.clone_repositories(

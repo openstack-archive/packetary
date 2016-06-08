@@ -68,7 +68,7 @@ REQUIREMENTS_SCHEMA = {
             }
         },
         "mandatory": {
-            "type": "boolean"
-        },
+            "enum": ["exact", "newest"]
+        }
     }
 }
