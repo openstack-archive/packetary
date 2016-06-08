@@ -96,22 +96,11 @@ class TestPackagesForest(base.TestCase):
             p22, forest.find(generator.gen_relation("package2", [">=", 2]))
         )
 
-    def test_get_packages_with_mandatory(self):
+    def test_get_packages(self):
         forest = PackagesForest()
         self._generate_packages(forest)
         packages = forest.get_packages(
-            [generator.gen_relation("package3")], True
-        )
-        self.assertItemsEqual(
-            ["package1", "package2", "package3", "package4", "package5"],
-            (x.name for x in packages)
-        )
-
-    def test_get_packages_without_mandatory(self):
-        forest = PackagesForest()
-        self._generate_packages(forest)
-        packages = forest.get_packages(
-            [generator.gen_relation("package3")], False
+            [generator.gen_relation("package3")]
         )
         self.assertItemsEqual(
             ["package2", "package3", "package5"],
