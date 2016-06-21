@@ -35,7 +35,9 @@ class TestRepositoryController(base.TestCase):
         self.context.async_section.return_value = Executor()
         self.ctrl = RepositoryController(self.context, self.driver, "x86_64")
 
-    def test_load_fail_if_unknown_driver(self):
+    @mock.patch("packetary.controllers.repository.stevedore")
+    def test_load_fail_if_unknown_driver(self, stevedore):
+        stevedore.ExtensionManager.return_value = {}
         with self.assertRaisesRegexp(NotImplementedError, "unknown_driver"):
             RepositoryController.load(
                 self.context,
@@ -51,6 +53,9 @@ class TestRepositoryController(base.TestCase):
         RepositoryController._drivers = None
         controller = RepositoryController.load(self.context, "test", "x86_64")
         self.assertIs(self.driver, controller.driver)
+        stevedore.ExtensionManager.assert_called_once_with(
+            "packetary.repository_drivers", invoke_on_load=True
+        )
 
     def test_load_repositories(self):
         repo_data = {"name": "test", "uri": "file:///test1"}
@@ -93,12 +98,18 @@ class TestRepositoryController(base.TestCase):
         clone.url = "/root/repo"
         self.driver.fork_repository.return_value = clone
         self.context.connection.retrieve.side_effect = [0, 10]
-        self.ctrl.fork_repository(repo, "./repo", None)
+        self.assertIs(
+            clone,
+            self.ctrl.fork_repository(repo, "./repo", None)
+        )
         self.driver.fork_repository.assert_called_once_with(
             self.context.connection, repo, "./repo/test", None
         )
         repo.path = "os"
-        self.ctrl.fork_repository(repo, "./repo", None)
+        self.assertIs(
+            clone,
+            self.ctrl.fork_repository(repo, "./repo", None)
+        )
         self.driver.fork_repository.assert_called_with(
             self.context.connection, repo, "./repo/os", None
         )

@@ -20,18 +20,21 @@ import copy
 import mock
 
 from packetary import api
-from packetary.controllers.repository import RepositoryController
+from packetary import controllers
 from packetary import schemas
 
 from packetary.tests import base
 from packetary.tests.stubs import generator
-from packetary.tests.stubs.helpers import CallbacksAdapter
+from packetary.tests.stubs import helpers
 
 
 @mock.patch("packetary.api.validators.jsonschema")
 class TestRepositoryApi(base.TestCase):
     def setUp(self):
-        self.controller = CallbacksAdapter(spec=RepositoryController)
+        super(TestRepositoryApi, self).setUp()
+        self.controller = helpers.CallbacksAdapter(
+            spec=controllers.RepositoryController
+        )
         self.api = api.RepositoryApi(self.controller)
         self.schema = {}
         self.controller.get_repository_data_schema.return_value = self.schema
