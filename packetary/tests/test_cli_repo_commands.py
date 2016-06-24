@@ -16,14 +16,7 @@
 #    with this program; if not, write to the Free Software Foundation, Inc.,
 #    51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 
-import subprocess
-
 import mock
-
-# The cmd2 does not work with python3.5
-# because it tries to get access to the property mswindows,
-# that was removed in 3.5
-subprocess.mswindows = False
 
 from packetary.api import RepositoryApi
 from packetary.api.statistics import CopyStatistics
@@ -38,10 +31,10 @@ from packetary.tests.stubs.generator import gen_relation
 from packetary.tests.stubs.generator import gen_repository
 
 
-@mock.patch("packetary.cli.commands.base.BaseRepoCommand.stdout")
+@mock.patch("packetary.cli.commands.base.BaseCommand.stdout")
 @mock.patch("packetary.cli.commands.base.read_from_file")
 @mock.patch("packetary.cli.commands.base.api.RepositoryApi")
-class TestCliCommands(base.TestCase):
+class TestCliRepoCommands(base.TestCase):
     common_argv = [
         "--ignore-errors-num=3",
         "--threads-num=8",
