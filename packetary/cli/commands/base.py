@@ -28,13 +28,17 @@ from packetary import api
 
 
 @six.add_metaclass(abc.ABCMeta)
-class BaseRepoCommand(command.Command):
+class BaseCommand(command.Command):
     """Super class for packetary commands."""
 
     @property
     def stdout(self):
         """Shortcut for self.app.stdout."""
         return self.app.stdout
+
+
+class BaseRepoCommand(BaseCommand):
+    """Class for repo commands."""
 
     def get_parser(self, prog_name):
         """Specifies common options."""
@@ -200,3 +204,47 @@ class BaseProduceOutputCommand(BaseRepoCommand):
     @abc.abstractmethod
     def take_repo_action(self, driver, parsed_args):
         """See Command.take_repo_action."""
+
+
+class BasePackagingCommand(BaseCommand):
+
+    def get_parser(self, prog_name):
+        """Specifies common options."""
+
+        parser = super(BasePackagingCommand, self).get_parser(prog_name)
+        parser.add_argument(
+            '-t', '--type',
+            required=True,
+            metavar='TYPE',
+            help='The type of package.'
+        )
+        parser.add_argument(
+            '-C', '--driver-config',
+            required=False,
+            metavar='PATH',
+            help='The path to configuration file for used driver.'
+        )
+
+        return parser
+
+    def take_action(self, parsed_args):
+        """See the Command.take_action.
+
+        :param parsed_args: the command-line arguments
+        :return: the result of take_repo_action
+        :rtype: object
+        """
+        return self.take_package_action(
+            api.PackagingApi.create(
+                self.app_args, parsed_args.type, parsed_args.driver_config
+            ),
+            parsed_args
+        )
+
+    def take_package_action(self, packaging_api, parsed_args):
+        """Takes action with package(s).
+
+        :param packaging_api: the RepositoryApi instance
+        :param parsed_args: the command-line arguments
+        :return: the action result
+        """
