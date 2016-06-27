@@ -114,3 +114,31 @@ class RepositoryDriverBase(object):
     @abc.abstractmethod
     def get_repository_data_schema(self):
         """Gets the json scheme for repository data validation."""
+
+
+@six.add_metaclass(abc.ABCMeta)
+class PackagingDriverBase(object):
+    """The super class for Packaging Drivers.
+
+    For implementing support of new type of packaging:
+    - inherit this class
+    - implement all abstract methods
+    - register implementation in 'packetary.packaging_drivers' namespace
+    """
+
+    def __init__(self):
+        self.logger = logging.getLogger(__package__)
+
+    @abc.abstractmethod
+    def get_data_schema(self):
+        """Gets the json-schema to validate input data."""
+
+    @abc.abstractmethod
+    def build_packages(self, data, output_dir, consumer):
+        """Build package from sources.
+
+        :param data: the input data for building packages,
+                     the format of data depends on selected driver
+        :param output_dir: directory for new packages
+        :param consumer: callable, that will be called for each built package
+        """
