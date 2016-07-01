@@ -124,3 +124,72 @@ class TestLibraryUtils(base.TestCase):
             ("", ("file:///root/",))
         ]
         self._check_cases(self.assertEqual, cases, utils.get_filename_from_uri)
+
+    def test_is_local(self):
+        self.assertTrue(utils.is_local("/root/1.txt"))
+        self.assertTrue(utils.is_local("file:///root/1.txt"))
+        self.assertTrue(utils.is_local("./root/1.txt"))
+        self.assertFalse(utils.is_local("http://localhost/root/1.txt"))
+
+    def test_find_executable(self):
+        finder = mock.MagicMock(side_effect=['/bin/test', None])
+        self.assertEqual(
+            '/bin/test', utils.find_executable('test', __finder=finder)
+        )
+        self.assertRaises(
+            RuntimeError, utils.find_executable, 'test2', __finder=finder
+        )
+
+    @mock.patch.multiple(
+        "packetary.library.utils", tempfile=mock.DEFAULT, shutil=mock.DEFAULT
+    )
+    def test_create_tmp_dir(self, tempfile, shutil):
+        with utils.create_tmp_dir() as tmpdir:
+            self.assertIs(tempfile.mkdtemp.return_value, tmpdir)
+
+        tempfile.mkdtemp.assert_called_once_with()
+        shutil.rmtree.assert_called_once_with(tmpdir, ignore_errors=True)
+
+    @mock.patch("packetary.library.utils.os")
+    def test_move_file_to_new_path(self, os_mock):
+        utils.move_file("f1", "f2", overwrite=False)
+        os_mock.rename.assert_called_once_with("f1", "f2")
+
+    @mock.patch("packetary.library.utils.os")
+    def test_move_file_fail_if_dest_exists(self, os_mock):
+        os_mock.rename.side_effect = OSError(utils.errno.EEXIST, "")
+        with self.assertRaises(OSError) as context:
+            utils.move_file("f1", "f2", overwrite=False)
+            os_mock.rename.assert_called_once_with("f1", "f2")
+            self.assertEqual(utils.errno.EEXIST, context.exception.errno)
+
+    @mock.patch("packetary.library.utils.os")
+    def test_move_file_with_overwrite(self, os_mock):
+        os_mock.rename.side_effect = [OSError(utils.errno.EEXIST, ""), None]
+        utils.move_file("f1", "f2", overwrite=True)
+        os_mock.unlink.assert_called_once_with("f2")
+        os_mock.rename.assert_called_with("f1", "f2")
+        self.assertEqual(2, os_mock.rename.call_count)
+
+    @mock.patch("packetary.library.utils.os")
+    def test_move_file_fail_if_other_error(self, os_mock):
+        os_mock.rename.side_effect = OSError(utils.errno.EACCES, "")
+        with self.assertRaises(OSError) as context:
+            utils.move_file("f1", "f2", overwrite=True)
+            self.assertEqual(utils.errno.EACCES, context.exception.errno)
+        self.assertEqual(0, os_mock.unlink.call_count)
+        os_mock.rename.assert_called_with("f1", "f2")
+        self.assertEqual(1, os_mock.rename.call_count)
+
+    @mock.patch("packetary.library.utils.move_file")
+    @mock.patch("packetary.library.utils.glob")
+    def test_move_files(self, glob_mock, move_file_mock):
+        overwrite = mock.MagicMock()
+        glob_mock.iglob.return_value = ["d1/f1", "d1/f2"]
+        files = utils.move_files("d1", "d2", "*.*", overwrite=overwrite)
+        move_file_mock.assert_has_calls(
+            [mock.call("d1/f1", "d2/f1", overwrite=overwrite),
+             mock.call("d1/f2", "d2/f2", overwrite=overwrite)],
+            any_order=False
+        )
+        self.assertEqual(["d2/f1", "d2/f2"], files)

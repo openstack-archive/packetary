@@ -17,9 +17,12 @@
 #    51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 
 import logging
+import os
 
 import six
 import stevedore
+
+from packetary.library import utils
 
 logger = logging.getLogger(__package__)
 
@@ -56,7 +59,15 @@ class PackagingController(object):
 
         :return : Return a jsonschema represented as a dict
         """
-        return self.driver.get_data_schema()
+        return {
+            "$schema": "http://json-schema.org/draft-04/schema#",
+            "type": "object",
+            "required": ["src", self.driver.get_section_name()],
+            "properties": {
+                "src": {"type": "string"},
+                self.driver.get_section_name(): self.driver.get_data_schema()
+            }
+        }
 
     def build_packages(self, data, output_dir, consumer):
         """Build package from sources.
@@ -66,5 +77,31 @@ class PackagingController(object):
         :param output_dir: directory for new packages
         :param consumer: callable, that will be called for each built package
         """
-        # TODO(bgaifullin) Add downloading sources and specs from URL
-        return self.driver.build_packages(data, output_dir, consumer)
+
+        driver_data = data[self.driver.get_section_name()]
+
+        with self.context.async_section() as section:
+            result = {}
+            mapping = {
+                'src': data['src'],
+                'spec': self.driver.get_spec(driver_data)
+            }
+            for key, value in mapping.items():
+                section.execute(self._ensure_local_path, value, key, result)
+
+        return self.driver.build_packages(
+            result['src'],
+            result['spec'],
+            self.driver.get_options(driver_data),
+            output_dir,
+            consumer
+        )
+
+    def _ensure_local_path(self, url, key, output):
+        path = utils.get_path_from_url(url, ensure_file=False)
+        if not utils.is_local(url):
+            path = os.path.join(
+                self.context.cache_dir, utils.get_filename_from_uri(path)
+            )
+            self.context.connection.retrieve(url, path)
+        output[key] = path
