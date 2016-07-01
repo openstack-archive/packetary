@@ -16,16 +16,13 @@
 #    with this program; if not, write to the Free Software Foundation, Inc.,
 #    51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 
-from packetary.schemas.deb_repo_schema import DEB_REPO_SCHEMA
-from packetary.schemas.package_files_schema import PACKAGE_FILES_SCHEMA
-from packetary.schemas.requirements_schema import REQUIREMENTS_SCHEMA
-from packetary.schemas.rpm_packaging_schema import RPM_PACKAGING_SCHEMA
-from packetary.schemas.rpm_repo_schema import RPM_REPO_SCHEMA
 
-__all__ = [
-    "DEB_REPO_SCHEMA",
-    "PACKAGE_FILES_SCHEMA",
-    "REQUIREMENTS_SCHEMA",
-    "RPM_PACKAGING_SCHEMA",
-    "RPM_REPO_SCHEMA",
-]
+FILE_URL = {
+    "type": "string",
+    "pattern": "^(http(s)?://[\w.-]+|file://|\.)?(/.+)+$"
+}
+
+DIR_URL = {
+    "type": "string",
+    "pattern": "^(http(s)?://[\w.-]+|file://|\.)?(/.+)+/$"
+}
