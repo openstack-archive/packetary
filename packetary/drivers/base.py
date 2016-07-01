@@ -134,11 +134,24 @@ class PackagingDriverBase(object):
         """Gets the json-schema to validate input data."""
 
     @abc.abstractmethod
-    def build_packages(self, data, output_dir, consumer):
+    def get_section_name(self):
+        """Gets name of section in input which contains data for driver."""
+
+    @abc.abstractmethod
+    def get_spec(self, data):
+        """Gets the url for spec file from data."""
+
+    @abc.abstractmethod
+    def get_options(self, data):
+        """Gets the options for built from data."""
+
+    @abc.abstractmethod
+    def build_packages(self, source, spec, options, output_dir, consumer):
         """Build package from sources.
 
-        :param data: the input data for building packages,
-                     the format of data depends on selected driver
+        :param source: the local path to source file or directory with sources
+        :param spec: the local path to specification file
+        :param options: the options of built
         :param output_dir: directory for new packages
         :param consumer: callable, that will be called for each built package
         """

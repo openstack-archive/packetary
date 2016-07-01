@@ -272,3 +272,35 @@ class TestPackageFilesSchema(base.TestCase):
                 jsonschema.ValidationError, "does not match",
                 jsonschema.validate, url, self.schema
             )
+
+
+class TestRpmPackagingSchema(base.TestCase):
+    def setUp(self):
+        self.schema = schemas.RPM_PACKAGING_SCHEMA
+
+    def test_valid_data(self):
+        data = {
+            'spec': '/spec.txt',
+            'options': {'with': 'option1', 'without': ['option2']}
+        }
+        self.assertNotRaises(
+            jsonschema.ValidationError, jsonschema.validate, data, self.schema
+        )
+
+    def test_validation_fail_if_option_is_invalid(self):
+        data = {
+            'spec': '/spec.txt',
+            'options': {'with': 1}
+        }
+        self.assertRaisesRegexp(
+            jsonschema.ValidationError,
+            "1 is not valid under any of the given schemas",
+            jsonschema.validate, data, self.schema
+        )
+
+    def test_validation_spec_is_mandatory(self):
+        data = {'options': {'with': '1'}}
+        self.assertRaisesRegexp(
+            jsonschema.ValidationError, "'spec' is a required property",
+            jsonschema.validate, data, self.schema
+        )
