@@ -77,8 +77,7 @@ class TestRepositorySchemaBase(base.TestCase):
 
 
 class TestDebRepoSchema(TestRepositorySchemaBase):
-    def setUp(self):
-        self.schema = schemas.DEB_REPO_SCHEMA
+    schema = schemas.DEB_REPO_SCHEMA
 
     def test_valid_repo_data(self):
         repo_data = {
@@ -141,8 +140,7 @@ class TestDebRepoSchema(TestRepositorySchemaBase):
 
 
 class TestRpmRepoSchema(TestRepositorySchemaBase):
-    def setUp(self):
-        self.schema = schemas.RPM_REPO_SCHEMA
+    schema = schemas.RPM_REPO_SCHEMA
 
     def test_valid_repo_data(self):
         repo_data = {
@@ -171,9 +169,7 @@ class TestRpmRepoSchema(TestRepositorySchemaBase):
 
 
 class TestRequirementsSchema(base.TestCase):
-
-    def setUp(self):
-        self.schema = schemas.REQUIREMENTS_SCHEMA
+    schema = schemas.REQUIREMENTS_SCHEMA
 
     def test_valid_requirements_data(self):
         requirements_data = {
@@ -229,8 +225,7 @@ class TestRequirementsSchema(base.TestCase):
 
 
 class TestPackageFilesSchema(base.TestCase):
-    def setUp(self):
-        self.schema = schemas.PACKAGE_FILES_SCHEMA
+    schema = schemas.PACKAGE_FILES_SCHEMA
 
     def test_valid_file_urls(self):
         file_urls = [
@@ -272,3 +267,51 @@ class TestPackageFilesSchema(base.TestCase):
                 jsonschema.ValidationError, "does not match",
                 jsonschema.validate, url, self.schema
             )
+
+
+class TestRpmPackagingSchema(base.TestCase):
+    schema = schemas.RPM_PACKAGING_SCHEMA
+
+    def test_valid_data(self):
+        data = {
+            'src': '/sources',
+            'rpm': {
+                'spec': '/spec.txt',
+                'options': {'with': 'option1', 'without': ['option2']}
+            }
+        }
+        self.assertNotRaises(
+            jsonschema.ValidationError, jsonschema.validate, data, self.schema
+        )
+
+    def test_validation_fail_if_option_is_invalid(self):
+        data = {
+            'src': '/sources',
+            'rpm': {'spec': '/spec.txt', 'options': {'with': 1}}
+        }
+        self.assertRaisesRegexp(
+            jsonschema.ValidationError,
+            "1 is not valid under any of the given schemas",
+            jsonschema.validate, data, self.schema
+        )
+
+    def test_validation_spec_is_mandatory(self):
+        data = {'src': '/sources', 'rpm': {'options': {'with': '1'}}}
+        self.assertRaisesRegexp(
+            jsonschema.ValidationError, "'spec' is a required property",
+            jsonschema.validate, data, self.schema
+        )
+
+    def test_validation_src_is_mandatory(self):
+        data = {'rpm': {'spec': '/spec.txt'}}
+        self.assertRaisesRegexp(
+            jsonschema.ValidationError, "'src' is a required property",
+            jsonschema.validate, data, self.schema
+        )
+
+    def test_validation_rpm_is_mandatory(self):
+        data = {'src': '/sources'}
+        self.assertRaisesRegexp(
+            jsonschema.ValidationError, "'rpm' is a required property",
+            jsonschema.validate, data, self.schema
+        )

@@ -22,13 +22,17 @@ from packetary.controllers import PackagingController
 from packetary.drivers.base import PackagingDriverBase
 
 from packetary.tests import base
+from packetary.tests.stubs.executor import Executor
 
 
 class TestPackagingController(base.TestCase):
     def setUp(self):
         super(TestPackagingController, self).setUp()
+        self.context = mock.MagicMock()
+        self.context.cache_dir = '/root'
+        self.context.async_section.return_value = Executor()
         self.driver = mock.MagicMock(spec=PackagingDriverBase)
-        self.controller = PackagingController("contex", self.driver)
+        self.controller = PackagingController(self.context, self.driver)
 
     @mock.patch("packetary.controllers.packaging.stevedore")
     def test_load_fail_if_unknown_driver(self, stevedore):
@@ -61,10 +65,27 @@ class TestPackagingController(base.TestCase):
         self.driver.get_data_schema.assert_called_once_with()
 
     def test_build_packages(self):
-        data = {'sources': '/sources'}
+        src = '/src'
+        spec = 'http://localhost/spec.txt'
+        data = {'src': src, 'test': {'spec': spec}}
+        self.driver.get_for_caching.return_value = [src, spec]
         output_dir = '/tmp/'
         callback = mock.MagicMock()
         self.controller.build_packages(data, output_dir, callback)
         self.driver.build_packages.assert_called_once_with(
-            data, output_dir, callback
+            data,
+            {src: src, spec: '/root/spec.txt'},
+            output_dir,
+            callback
+        )
+
+    def test_add_to_cache(self):
+        cache = {}
+        self.controller._add_to_cache('/test', cache)
+        self.assertEqual('/test', cache['/test'])
+        self.assertEqual(0, self.context.connection.retrieve.call_count)
+        self.controller._add_to_cache('http://localhost/test.txt', cache)
+        self.assertEqual('/root/test.txt', cache['http://localhost/test.txt'])
+        self.context.connection.retrieve.assert_called_once_with(
+            'http://localhost/test.txt', '/root/test.txt'
         )

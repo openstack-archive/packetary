@@ -17,9 +17,12 @@
 #    51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 
 import logging
+import os
 
 import six
 import stevedore
+
+from packetary.library import utils
 
 logger = logging.getLogger(__package__)
 
@@ -66,5 +69,19 @@ class PackagingController(object):
         :param output_dir: directory for new packages
         :param consumer: callable, that will be called for each built package
         """
-        # TODO(bgaifullin) Add downloading sources and specs from URL
-        return self.driver.build_packages(data, output_dir, consumer)
+
+        cache = {}
+        with self.context.async_section() as section:
+            for url in self.driver.get_for_caching(data):
+                section.execute(self._add_to_cache, url, cache)
+
+        return self.driver.build_packages(data, cache, output_dir, consumer)
+
+    def _add_to_cache(self, url, cache):
+        path = utils.get_path_from_url(url, ensure_file=False)
+        if not utils.is_local(url):
+            path = os.path.join(
+                self.context.cache_dir, utils.get_filename_from_uri(path)
+            )
+            self.context.connection.retrieve(url, path)
+        cache[url] = path

@@ -76,6 +76,12 @@ class Application(app.App):
             metavar="https://username:password@proxy_host:proxy_port",
             help="The URL of https proxy."
         )
+        parser.add_argument(
+            "--cache-dir",
+            default=None,
+            metavar="PATH",
+            help="The path to the directory which be used for cache."
+        )
         return parser
 
 

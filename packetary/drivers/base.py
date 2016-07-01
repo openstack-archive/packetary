@@ -134,11 +134,15 @@ class PackagingDriverBase(object):
         """Gets the json-schema to validate input data."""
 
     @abc.abstractmethod
-    def build_packages(self, data, output_dir, consumer):
+    def get_for_caching(self, data):
+        """Gets the list of url(s), that should be added to cache."""
+
+    @abc.abstractmethod
+    def build_packages(self, data, cache, output_dir, consumer):
         """Build package from sources.
 
-        :param data: the input data for building packages,
-                     the format of data depends on selected driver
+        :param data: the input data
+        :param cache: the cache instance with resources, which is downloaded
         :param output_dir: directory for new packages
         :param consumer: callable, that will be called for each built package
         """

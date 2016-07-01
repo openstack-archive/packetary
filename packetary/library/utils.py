@@ -18,8 +18,13 @@
 
 from __future__ import with_statement
 
+import contextlib
+from distutils import spawn
 import errno
+import glob
 import os
+import shutil
+import tempfile
 
 import six
 
@@ -71,6 +76,12 @@ def get_size_and_checksum_for_files(files, checksum_algo):
             size = os.fstat(fd.fileno()).st_size
             checksum = checksum_algo(fd)
         yield filename, size, checksum
+
+
+def is_local(url):
+    """Checks that url reflects local path."""
+    comps = urlparse(url, scheme="file")
+    return comps.scheme == "file"
 
 
 def get_path_from_url(url, ensure_file=True):
@@ -135,3 +146,48 @@ def ensure_dir_exist(path):
     except OSError as e:
         if e.errno != errno.EEXIST:
             raise
+
+
+def find_executable(name, __finder=spawn.find_executable):
+    """Finds executable by name in directories listed in 'path'."""
+
+    path = __finder(name)
+    if not path:
+        raise RuntimeError(
+            "{0} does not found in directories listed in 'path'."
+            .format(name)
+        )
+    return path
+
+
+@contextlib.contextmanager
+def create_tmp_dir():
+    """Creates temporary directory.
+
+    The directory will be removed automatically on exit from context
+
+    :return:  path of directory that has been created
+    """
+
+    tmpdir = tempfile.mkdtemp()
+    try:
+        yield tmpdir
+    finally:
+        shutil.rmtree(tmpdir, ignore_errors=True)
+
+
+def move_files(src, dst, pattern='*'):
+    """Moves files by pattern from directory src to directory dst.
+
+    :param src: the source directory path
+    :param dst: the destination directory path
+    :param pattern: the pattern to search files in directory
+    :return: the list of files that has been moved
+    """
+
+    files = []
+    for f in glob.iglob(os.path.join(src, pattern)):
+        dst_path = os.path.join(dst, os.path.basename(f))
+        shutil.move(f, dst_path)
+        files.append(dst_path)
+    return files

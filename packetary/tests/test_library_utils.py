@@ -124,3 +124,40 @@ class TestLibraryUtils(base.TestCase):
             ("", ("file:///root/",))
         ]
         self._check_cases(self.assertEqual, cases, utils.get_filename_from_uri)
+
+    def test_is_local(self):
+        self.assertTrue(utils.is_local("/root/1.txt"))
+        self.assertTrue(utils.is_local("file:///root/1.txt"))
+        self.assertTrue(utils.is_local("./root/1.txt"))
+        self.assertFalse(utils.is_local("http://localhost/root/1.txt"))
+
+    def test_find_executable(self):
+        finder = mock.MagicMock(side_effect=['/bin/test', None])
+        self.assertEqual(
+            '/bin/test', utils.find_executable('test', __finder=finder)
+        )
+        self.assertRaises(
+            RuntimeError, utils.find_executable, 'test2', __finder=finder
+        )
+
+    @mock.patch.multiple(
+        "packetary.library.utils", tempfile=mock.DEFAULT, shutil=mock.DEFAULT
+    )
+    def test_create_tmp_dir(self, tempfile, shutil):
+        with utils.create_tmp_dir() as tmpdir:
+            self.assertIs(tempfile.mkdtemp.return_value, tmpdir)
+
+        tempfile.mkdtemp.assert_called_once_with()
+        shutil.rmtree.assert_called_once_with(tmpdir, ignore_errors=True)
+
+    @mock.patch("packetary.library.utils.shutil")
+    @mock.patch("packetary.library.utils.glob")
+    def test_move_files(self, glob_mock, shutil_mock):
+        glob_mock.iglob.return_value = ["d1/f1", "d1/f2"]
+        files = utils.move_files("d1", "d2", "*.*")
+        shutil_mock.move.assert_has_calls(
+            [mock.call("d1/f1", "d2/f1"),
+             mock.call("d1/f2", "d2/f2")],
+            any_order=False
+        )
+        self.assertEqual(["d2/f1", "d2/f2"], files)

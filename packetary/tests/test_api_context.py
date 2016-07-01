@@ -32,7 +32,8 @@ class TestContext(base.TestCase):
             retries_num=5,
             retry_interval=10,
             http_proxy="http://localhost",
-            https_proxy="https://localhost"
+            https_proxy="https://localhost",
+            cache_dir="/root/cache"
         )
 
     @mock.patch("packetary.api.context.ConnectionsManager")
@@ -55,3 +56,12 @@ class TestContext(base.TestCase):
         self.assertIs(s, async_section())
         ctx.async_section(0)
         async_section.assert_called_with(2, 0)
+
+    @mock.patch("packetary.api.context.tempfile")
+    def test_cache_dir(self, tempfile_mock):
+        ctx = context.Context(self.config)
+        self.assertEqual(self.config.cache_dir, ctx.cache_dir)
+        self.config.cache_dir = None
+        tempfile_mock.gettempdir.return_value = '/tmp'
+        ctx2 = context.Context(self.config)
+        self.assertEqual('/tmp/packetary-cache', ctx2.cache_dir)

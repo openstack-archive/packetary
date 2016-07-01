@@ -109,7 +109,7 @@ class TestRepositoryApi(base.TestCase):
         config = api.Configuration(
             http_proxy="http://localhost", https_proxy="https://localhost",
             retries_num=10, retry_interval=1, threads_num=8,
-            ignore_errors_num=6
+            ignore_errors_num=6, cache_dir='/tmp/cache'
         )
         context = api.Context(config)
         api.RepositoryApi.create(context, "deb", "x86_64")
