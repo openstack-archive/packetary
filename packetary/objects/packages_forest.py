@@ -44,12 +44,10 @@ class PackagesForest(object):
             tree = self.trees[priority] = PackagesTree()
             return tree
 
-    def get_packages(self, requirements, include_mandatory=False):
+    def get_packages(self, requirements):
         """Get the packages according requirements.
 
         :param requirements: the list of requirements
-        :param include_mandatory: if true, the mandatory packages will be
-                                  included to result
         :return list of packages to copy
         """
 
@@ -60,12 +58,6 @@ class PackagesForest(object):
         resolved = set()
         unresolved = set()
         stack = [(None, requirements)]
-
-        if include_mandatory:
-            for tree in six.itervalues(self.trees):
-                for mandatory in tree.mandatory_packages:
-                    resolved.add(mandatory)
-                    stack.append((mandatory, mandatory.requires))
 
         while stack:
             pkg, requirements = stack.pop()
