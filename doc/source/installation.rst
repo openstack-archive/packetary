@@ -1,12 +1,25 @@
 ============
 Installation
 ============
+Install system requirements::
 
-At the command line::
+    ~ $ sudo aptitude install yum \
+        yum-utils \
+        createrepo \
+        mock \
+        sbuild \
+        git \
+        libxml2-dev \
+        libxslt1-dev \
+        python-dev \
+        python-virtualenv \
+        zlib1g-dev
 
-    $ pip install packetary
+Install from sources::
 
-Or, if you have virtualenvwrapper installed::
-
-    $ mkvirtualenv packetary
-    $ pip install packetary
+    ~ $ git clone https://git.openstack.org/openstack/packetary
+    ~ $ cd packetary/
+    ~/packetary$ virtualenv .venv
+    ~/packetary$ source .venv/bin/activate
+    ~/packetary$ pip install -r requirements.txt
+    ~/packetary$ python setup.py install
