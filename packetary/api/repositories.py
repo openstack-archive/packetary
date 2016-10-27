@@ -73,7 +73,7 @@ class RepositoryApi(object):
 
         :param config: the configuration
         :param repotype: the kind of repository(deb, yum, etc)
-        :param repoarch: the architecture of repository (x86_64 or i386)
+        :param repoarch: the architecture of repository (x86_64, i386 or aarch64)
         """
         context = config if isinstance(config, Context) else Context(config)
         return cls(RepositoryController.load(context, repotype, repoarch))
