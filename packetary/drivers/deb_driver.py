@@ -409,7 +409,8 @@ class DebRepositoryDriver(RepositoryDriverBase):
         release.setdefault("Description", "The packages repository.")
 
         keys = ("Architectures", "Components")
-        values = (repository.architecture, repository.section[1])
+        values = (_ARCHITECTURES[repository.architecture],
+                  repository.section[1])
         for key, value in six.moves.zip(keys, values):
             if key in release:
                 release[key] = utils.append_token_to_string(
