@@ -45,7 +45,8 @@ class RepositoryController(object):
 
         :param context: the context
         :param driver_name: the name of required driver
-        :param repoarch: the architecture of repository (x86_64 or i386)
+        :param repoarch: the architecture of repository
+                         (x86_64, i386 or aarch64)
         """
         if cls._drivers is None:
             cls._drivers = stevedore.ExtensionManager(
