@@ -117,7 +117,8 @@ class RepositoryApi(object):
 
         repositories = self.controller.load_repositories(repos_data)
         all_packages = self._get_packages(repositories, requirements_data)
-        package_groups = defaultdict(set)
+        # create a empty package group even repo is empty
+        package_groups = {repo: set() for repo in repositories}
         for pkg in all_packages:
             package_groups[pkg.repository].add(pkg)
 
