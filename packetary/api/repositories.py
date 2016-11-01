@@ -121,6 +121,11 @@ class RepositoryApi(object):
         for pkg in all_packages:
             package_groups[pkg.repository].add(pkg)
 
+        # Make sure we create metadata for all repos, even if empty
+        for repo in repositories:
+            if repo not in package_groups:
+                package_groups[repo] = set()
+
         stat = CopyStatistics()
         mirrors = defaultdict(set)
         options = options or self.CopyOptions()
