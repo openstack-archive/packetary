@@ -1,0 +1,8 @@
+Code-Review+2: Vladimir Kozhukalov <vkozhukalov@mirantis.com>
+Workflow+1: Vladimir Kozhukalov <vkozhukalov@mirantis.com>
+Verified+2: Jenkins
+Submitted-by: Jenkins
+Submitted-at: Tue, 13 Dec 2016 17:52:11 +0000
+Reviewed-on: https://review.openstack.org/392937
+Project: openstack/packetary
+Branch: refs/heads/master
