@@ -48,10 +48,12 @@ _OPERATORS_MAPPING = {
 }
 
 _ARCHITECTURES = {
+    "aarch64": "arm64",
     "x86_64": "amd64",
     "i386": "i386",
     "source": "Source",
     "amd64": "x86_64",
+    "arm64": "aarch64",
 }
 
 _PRIORITIES = {

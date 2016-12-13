@@ -56,7 +56,7 @@ class BaseRepoCommand(BaseCommand):
             '-a',
             '--arch',
             type=str,
-            choices=["x86_64", "i386"],
+            choices=["x86_64", "i386", "aarch64"],
             metavar='ARCHITECTURE',
             default="x86_64",
             help='The target architecture.')
