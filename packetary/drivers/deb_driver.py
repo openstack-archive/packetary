@@ -233,7 +233,7 @@ class DebRepositoryDriver(RepositoryDriverBase):
             priority=self.get_priority(repository_data)
         )
         self._create_repository_structure(repository)
-        self.logger.info("Created: %d repository.", repository.name)
+        self.logger.info("Created: %s repository.", repository.name)
         return repository
 
     def load_package_from_file(self, repository, filename):
