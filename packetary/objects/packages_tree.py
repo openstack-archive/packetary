@@ -68,25 +68,31 @@ class PackagesTree(object):
         :param version_range: the range of versions.
         :return: the list of suitable packages
         """
-        candidates = set()
-        # find package by name
-        if name in self.packages:
-            candidates.update(self.packages.find_all(name, version_range))
+        candidates = []
+
+        if name in self.obsoletes:
+            candidates.extend(sorted(
+                self._resolve_relation(self.obsoletes[name], version_range),
+                key=lambda x: x.version
+            ))
 
         # find package by provides
         # in case of rpm:
         #    set(candidates) >= set(provides)
         if name in self.provides:
-            candidates.update(self._resolve_relation(
-                self.provides[name], version_range)
-            )
+            candidates.extend(sorted(
+                self._resolve_relation(self.provides[name], version_range),
+                key=lambda x: x.version
+            ))
 
-        if name in self.obsoletes:
-            candidates.update(self._resolve_relation(
-                self.obsoletes[name], version_range)
-            )
+        # find package by name
+        if name in self.packages:
+            candidates.extend(sorted(
+                self.packages.find_all(name, version_range),
+                key=lambda x: x.version
+            ))
 
-        return sorted(candidates, key=lambda x: x.version)
+        return candidates
 
     def get_unresolved_dependencies(self):
         """Gets the set of unresolved dependencies.
