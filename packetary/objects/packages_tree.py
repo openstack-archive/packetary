@@ -18,6 +18,7 @@
 
 from collections import defaultdict
 
+import re
 import six
 
 from packetary.objects.index import Index
@@ -57,6 +58,10 @@ class PackagesTree(object):
         """
         candidates = self.find_all(name, version_range)
         if len(candidates) > 0:
+            # exact pkg name match trumps other providers' versions
+            for candidate in reversed(candidates):
+                if re.match('{0}\s.*'.format(re.escape(name)), str(candidate)):
+                    return candidate
             # we return candidates in sorted order, so let's take the highest
             return candidates[-1]
         return None
