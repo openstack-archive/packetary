@@ -275,7 +275,7 @@ class RpmRepositoryDriver(RepositoryDriverBase):
         update = packages is not None and os.path.exists(mdfile_path)
         groupsfile = None
         if groupstree is None and update:
-            # The createrepo lose the groups information on update
+            # The createrepo lose the group information on update
             # to prevent this set group info manually
             groupstree = self._load_groups(conn, repo)
 

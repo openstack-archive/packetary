@@ -91,7 +91,7 @@ class DebRepositoryDriver(RepositoryDriverBase):
 
     def get_priority(self, repo_data):
         # DEB repository expects general values from 0 to 1000. 0
-        # to have lowest priority and 1000 -- the highest. Note that a
+        # to have the lowest priority and 1000 -- the highest. Note that a
         # priority above 1000 will allow even downgrades no matter the version
         # of the prioritary package
         priority = repo_data.get('priority')
@@ -120,7 +120,7 @@ class DebRepositoryDriver(RepositoryDriverBase):
             except connection.HTTPError as e:
                 if e.code != 404:
                     raise
-                # some repositories does not contain release file
+                # some repositories do not contain release file
                 deb_release = {"origin": ""}
 
             consumer(Repository(

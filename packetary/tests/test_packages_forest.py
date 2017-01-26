@@ -90,7 +90,7 @@ class TestPackagesForest(base.TestCase):
         self.assertEqual(
             p21, forest.find(generator.gen_relation("package2", ["<", 2]))
         )
-        # select package from the repo with highest priority
+        # select package from the repo with the highest priority
         # p33 has version 10, but in the repo with lower priority
         self.assertEqual(
             p22, forest.find(generator.gen_relation("package2", [">=", 2]))

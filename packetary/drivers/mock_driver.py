@@ -60,7 +60,7 @@ class MockDriver(PackagingDriverBase):
             utils.ensure_dir_exist(rpms_dir)
             self._rebuild(srpms, resultdir=tmpdir, **options)
 
-            # rebuild commands rebuilds source rpm too
+            # rebuild commands rebuilds source rpm to
             # notify only about last version
             for rpm in utils.move_files(tmpdir, srpms_dir, '*.src.rpm'):
                 consumer(rpm)

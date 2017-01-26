@@ -52,8 +52,8 @@ class RetryableRequest(urllib.Request):
 
         :return: the time to wait before start retry
         """
-        # we uses progressive timeout between retries,
-        # the greatest number of retry will have greatest timeout
+        # we use progressive timeout between retries,
+        # the greatest number of retry will have the greatest timeout
         # but limited with MAX_INTERVAL
         coef = max(self.MAX_INTERVAL - self.retries_left, 1)
         interval = self.retry_interval * coef
@@ -134,7 +134,7 @@ class RetryHandler(urllib.HTTPRedirectHandler):
         code, msg = response.getcode(), response.msg
 
         if 300 <= code < 400:
-            # the redirect group, pass to next handler as is
+            # the redirecting group, pass to next handler as is
             return response
 
         # the server should response partial content if range is specified
