@@ -1,0 +1,9 @@
+Code-Review+1: Serg Melikyan <smelikyan@mirantis.com>
+Code-Review+2: Bulat Gaifullin <gaifullinbf@gmail.com>
+Workflow+1: Bulat Gaifullin <gaifullinbf@gmail.com>
+Verified+2: Jenkins
+Submitted-by: Jenkins
+Submitted-at: Mon, 30 Jan 2017 11:27:00 +0000
+Reviewed-on: https://review.openstack.org/420815
+Project: openstack/packetary
+Branch: refs/heads/master
